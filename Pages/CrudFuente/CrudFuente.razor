@@ -1,0 +1,84 @@
+@page "/Fuente"  
+@using System.Collections.Generic  
+@using System.Text.Json  
+@using Microsoft.AspNetCore.Components.Web
+@using FrontBlazor.Services  
+@inject ServicioEntidad servicioEntidad  
+@inject NavigationManager navegacionManager  
+<PageTitle>Fuentes</PageTitle>
+
+<h3>Lista de Fuentes</h3>
+
+@if (Fuentes is null)
+{
+    <p>Cargando...</p>
+}
+else if (Fuentes.Count == 0)
+{
+    <p>No hay registros.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var Fuente in Fuentes)
+            {
+                <tr>
+                    <td>@Fuente["id"]</td>
+                    <td>@Fuente["nombre"]</td>
+                    <td>
+                        <button class="btn btn-warning" @onclick="() => EditarFuente(ObtenerId(Fuente))">Editar</button>
+                        <button class="btn btn-danger" @onclick="async () => await EliminarFuente(ObtenerId(Fuente))">Eliminar</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<button class="btn btn-primary" @onclick="CrearFuente">Agregar Fuente</button>
+
+@code {
+    private List<Dictionary<string, object>>? Fuentes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Fuentes = await servicioEntidad.ObtenerTodosAsync("proyecto", "Fuente");
+    }
+
+    private void CrearFuente()
+    {
+        navegacionManager.NavigateTo("/Fuente/crear");
+    }
+
+    private void EditarFuente(string id)
+    {
+        navegacionManager.NavigateTo($"/Fuente/editar/{id}");
+    }
+
+    private async Task EliminarFuente(string id)
+    {
+        bool confirmado = await servicioEntidad.EliminarAsync("proyecto", "Fuente", "id", id);
+        if (confirmado)
+        {
+            Fuentes = await servicioEntidad.ObtenerTodosAsync("proyecto", "Fuente");
+            StateHasChanged();
+        }
+    }
+
+    private string ObtenerId(Dictionary<string, object> Fuente)
+{
+    if (Fuente.TryGetValue("id", out var idValor) && idValor != null)
+    {
+        return idValor.ToString() ?? "";
+    }
+    return ""; // Retorna cadena vacía si no encuentra el id
+}
+}

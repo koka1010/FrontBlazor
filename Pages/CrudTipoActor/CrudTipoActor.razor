@@ -1,0 +1,84 @@
+@page "/TipoActor"  
+@using System.Collections.Generic  
+@using System.Text.Json  
+@using FrontBlazor.Services  
+@inject ServicioEntidad servicioEntidad  
+@inject NavigationManager navegacionManager  
+
+<PageTitle>TipoActor</PageTitle>
+
+<h3>Lista de TipoActor</h3>
+
+@if (TipoActors is null)
+{
+    <p>Cargando...</p>
+}
+else if (TipoActors.Count == 0)
+{
+    <p>No hay registros.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var TipoActor in TipoActors)
+            {
+                <tr>
+                    <td>@TipoActor["id"]</td>
+                    <td>@TipoActor["nombre"]</td>
+                    <td>
+                        <button class="btn btn-warning" @onclick="@( () => EditarTipoActor(ObtenerId(TipoActor)) )">Editar</button>
+                        <button class="btn btn-danger" @onclick="@( async () => await EliminarTipoActor(ObtenerId(TipoActor)) )">Eliminar</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<button class="btn btn-primary" @onclick="CrearTipoActor">Agregar TipoActor</button>
+
+@code {
+    private List<Dictionary<string, object>>? TipoActors;
+
+    protected override async Task OnInitializedAsync()
+    {
+        TipoActors = await servicioEntidad.ObtenerTodosAsync("proyecto", "TipoActor");
+    }
+
+    private void CrearTipoActor()
+    {
+        navegacionManager.NavigateTo("/TipoActor/crear");
+    }
+
+    private void EditarTipoActor(string id)
+    {
+        navegacionManager.NavigateTo($"/TipoActor/editar/{id}");
+    }
+
+    private async Task EliminarTipoActor(string id)
+    {
+        bool confirmado = await servicioEntidad.EliminarAsync("proyecto", "TipoActor", "id", id);
+        if (confirmado)
+        {
+            TipoActors = await servicioEntidad.ObtenerTodosAsync("proyecto", "TipoActor");
+            StateHasChanged();
+        }
+    }
+
+    private string ObtenerId(Dictionary<string, object> TipoActor)
+{
+    if (TipoActor.TryGetValue("id", out var idValor) && idValor != null)
+    {
+        return idValor.ToString() ?? "";
+    }
+    return ""; // Retorna cadena vacía si no encuentra el id
+}
+}

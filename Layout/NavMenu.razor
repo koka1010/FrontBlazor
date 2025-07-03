@@ -1,0 +1,118 @@
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">FrontBlazor</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="login">
+                <span class="bi bi-box-arrow-in-right" aria-hidden="true"></span> Iniciar Sesión
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="logout">
+                <span class="bi bi-box-arrow-right" aria-hidden="true"></span> Cerrar Sesión
+            </NavLink>
+        </div>    
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Fuente">
+                <span class="oi oi-box" aria-hidden="true"></span> Fuente
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="crearRepre">
+                <span class="oi oi-box" aria-hidden="true"></span> Representació Visual
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="TipoActor">
+                <span class="oi oi-box" aria-hidden="true"></span> TipoActor
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="sentido">
+                <span class="oi oi-box" aria-hidden="true"></span> Sentido
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="tipoindicador">
+                <span class="oi oi-box" aria-hidden="true"></span> TipoIndicadores
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="UnidadMedicion">
+                <span class="oi oi-box" aria-hidden="true"></span> UnidadMedicion
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="indicador">
+                <span class="oi oi-box" aria-hidden="true"></span> indicador
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Actor">
+                <span class="oi oi-box" aria-hidden="true"></span> Actor
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Variable">
+                <span class="oi oi-box" aria-hidden="true"></span> Variables
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="reprevisualindicador">
+                <span class="oi oi-box" aria-hidden="true"></span> Represen Visual por Indicador
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="fuentesporindicador">
+                <span class="oi oi-box" aria-hidden="true"></span> Fuentes por Indicador
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center text-truncate" style="max-width: 100%;" href="responsablesporindicador">
+                <span class="ms-2 text-truncate" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">  Responsable por indicador
+                </span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="resultado-indicador">
+                <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Resultado Indicador
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link d-flex align-items-center text-truncate" style="max-width: 100%;" href="variable-indicador">
+                <span class="ms-2 text-truncate" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Variable por Indicador                </span>
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+}
+
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}

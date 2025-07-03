@@ -1,0 +1,301 @@
+@page "/Actor"
+@using System.Collections.Generic
+@using System.Text.Json
+@using Services
+@inject ServicioEntidad servicioEntidad
+@inject NavigationManager navegacionManager
+@inject IJSRuntime JSRuntime
+@inherits ValidacionAcceso
+<PageTitle>Lista actor</PageTitle>
+
+<h1 class="mb-4 text-primary">Actor</h1>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <button class="btn btn-primary w-100" @onclick="ToggleFormulario">
+            @((mostrarFormulario ? "Cerrar formulario" : "Crear Actor"))
+        </button>
+    </div>
+    <div class="col-md-6">
+        <!-- Barra de búsqueda -->
+        <input class="form-control" placeholder="Buscar por nombre..."
+               @bind="filtroNombre" />
+    </div>
+</div>
+
+@if (mostrarFormulario)
+{
+    <div class="card p-4 mb-4 shadow">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label>Id</label>
+                <input class="form-control" @bind="nuevoId" placeholder="Id" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Nombre</label>
+                <input class="form-control" @bind="nuevoNombre" placeholder="Nombre" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Tipo de Actor</label>
+                <select class="form-control" @bind="nuevoTipoActor">
+                    <option value="">Seleccione</option>
+                    @foreach (var tipo in listaTipoActor)
+                    {
+                        <option value="@tipo["id"]?.ToString()">
+                            @tipo["nombre"]?.ToString()
+                        </option>
+                    }
+                </select>
+            </div>
+        </div>
+        <button class="btn btn-success w-100 mt-3" @onclick="CrearActor">
+            Crear Actor
+        </button>
+    </div>
+}
+
+@if (cargando)
+{
+    <p><em>Cargando...</em></p>
+}
+else
+{
+    <!-- filtro por nombre -->
+    var actoresFiltrados = actores
+        .Where(a => string.IsNullOrEmpty(filtroNombre)
+                 || ObtenerValor(a, "nombre")
+                       .Contains(filtroNombre, StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    @if (actoresFiltrados.Count == 0)
+    {
+        <p>No hay actores que coincidan con "<strong>@filtroNombre</strong>".</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered align-middle text-center">
+                <thead>
+                    <tr>
+                        <th>Id</th>
+                        <th>Nombre</th>
+                        <th>Tipo Actor</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var actor in actoresFiltrados)
+                    {
+                        var id = ObtenerValor(actor, "id");
+                        var nombre= ObtenerValor(actor, "nombre");
+                        var tipoactor= ObtenerValor(actor, "fkidtipoactor");
+                        var nombretipo= ObtenerNombreTipoActor(tipoactor);
+
+                        <tr>
+                            <td>@id</td>
+                            <td>
+                                @if (editandoId == id)
+                                {
+                                    <input class="form-control" @bind="nombreEditado" />
+                                }
+                                else
+                                {
+                                    @nombre
+                                }
+                            </td>
+                            <td>
+                                @if (editandoId == id)
+                                {
+                                    <select class="form-control" @bind="tipoactorEditado">
+                                        @foreach (var tipo in listaTipoActor)
+                                        {
+                                            <option value="@int.Parse(tipo["id"]?.ToString() ?? "0")">
+                                                @tipo["nombre"]?.ToString()
+                                            </option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    @nombretipo
+                                }
+                            </td>
+                            <td>
+                                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                    @if (editandoId == id)
+                                    {
+                                        <button class="btn btn-sm btn-success"
+                                                @onclick="() => GuardarEdicion(id)">
+                                            <i class="bi bi-check2"></i> Guardar
+                                        </button>
+                                        <button class="btn btn-sm btn-secondary"
+                                                @onclick="CancelarEdicion">
+                                            <i class="bi bi-x-lg"></i> Cancelar
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-primary"
+                                                @onclick="() => Edicion(id, nombre, int.Parse(tipoactor))">
+                                            <i class="bi bi-pencil-square"></i> Editar
+                                        </button>
+                                        <button class="btn btn-sm btn-danger"
+                                                @onclick="() => EliminarActor(id)">
+                                            <i class="bi bi-trash"></i> Eliminar
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@if (errorMensaje != null)
+{
+    <div class="alert alert-danger">
+        Error: @errorMensaje
+    </div>
+}
+
+@code {
+    private List<Dictionary<string, object>> actores = new();
+    private List<Dictionary<string, object>> listaTipoActor = new();
+
+    private bool cargando = true;
+    private string? errorMensaje = null;
+
+
+    private string nuevoId = string.Empty;
+    private string nuevoNombre = string.Empty;
+    private int? nuevoTipoActor = 0;
+
+
+    private string? editandoId = null;
+    private string nombreEditado = string.Empty;
+    private int? tipoactorEditado = 0;
+
+ 
+    private string filtroNombre = string.Empty;
+
+    private bool mostrarFormulario = false;
+    private void ToggleFormulario() => mostrarFormulario = !mostrarFormulario;
+
+    
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarActor();
+        await CargarListasSelect();
+    }
+
+    private async Task CargarActor()
+    {
+        cargando = true;
+        errorMensaje = null;
+        try
+        {
+            actores = await servicioEntidad.ObtenerTodosAsync("csharpapigenerica", "actor")
+                      ?? new List<Dictionary<string, object>>();
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al cargar actores: {ex.Message}";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task CargarListasSelect()
+    {
+        listaTipoActor = await servicioEntidad.ObtenerTodosAsync("csharpapigenerica", "tipoactor")
+                         ?? new List<Dictionary<string, object>>();
+    }
+
+    private string ObtenerValor(Dictionary<string, object> dict, string clave)
+        => dict.TryGetValue(clave, out var v) ? v?.ToString() ?? "" : "";
+
+    private string ObtenerNombreTipoActor(string fkid)
+    {
+        var tipo = listaTipoActor.FirstOrDefault(t => t["id"]?.ToString() == fkid);
+        return tipo?.GetValueOrDefault("nombre")?.ToString() ?? "(Desconocido)";
+    }
+
+    private async Task CrearActor()
+    {
+        errorMensaje = null;
+        if (string.IsNullOrWhiteSpace(nuevoNombre)) return;
+
+        var nuevo = new Dictionary<string, object?>
+        {
+            ["id"]             = nuevoId,
+            ["nombre"]         = nuevoNombre,
+            ["fkidtipoactor"]  = nuevoTipoActor
+        };
+
+        var ok = await servicioEntidad.CrearAsync("csharpapigenerica", "actor", nuevo);
+        if (ok)
+        {
+            await CargarActor();
+            nuevoId = nuevoNombre = "";
+            nuevoTipoActor = 0;
+            mostrarFormulario = false;
+        }
+        else
+        {
+            errorMensaje = "No se pudo crear el actor.";
+        }
+    }
+
+    private void Edicion(string id, string nombre, int tipo)
+    {
+        editandoId = id;
+        nombreEditado = nombre;
+        tipoactorEditado = tipo;
+    }
+
+    private void CancelarEdicion()
+    {
+        editandoId = null;
+        nombreEditado = "";
+        tipoactorEditado = 0;
+    }
+
+    private async Task GuardarEdicion(string id)
+    {
+        errorMensaje = null;
+        var datos = new Dictionary<string, object?>
+        {
+            ["id"]            = id,
+            ["nombre"]        = nombreEditado,
+            ["fkidtipoactor"] = tipoactorEditado
+        };
+
+        var ok = await servicioEntidad.ActualizarAsync("csharpapigenerica", "actor", "id", id, datos);
+        if (ok)
+        {
+            await CargarActor();
+            CancelarEdicion();
+        }
+        else
+        {
+            errorMensaje = "No se pudo actualizar el actor.";
+        }
+    }
+
+    private async Task EliminarActor(string id)
+    {
+        errorMensaje = null;
+        var confirmar = await JSRuntime.InvokeAsync<bool>("confirm", $"Seguro que quieres elimar el actor con id {id}?");
+        if (!confirmar) return;
+
+        var ok = await servicioEntidad.EliminarAsync("csharpapigenerica", "actor", "id", id);
+        if (ok) await CargarActor();
+        else errorMensaje = "No se pudo eliminar el actor.";
+    }
+}
