@@ -1,0 +1,354 @@
+@page "/responsablesporindicador"
+@using System.Collections.Generic
+@using System.Linq
+@using Services
+@inject ServicioEntidad servicioEntidad
+@inject NavigationManager navegacionManager
+@inject IJSRuntime JSRuntime
+@inherits ValidacionAcceso
+<PageTitle>Responsables por Indicador</PageTitle>
+
+<h1 class="mb-4 text-primary">Responsables por Indicador</h1>
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <button class="btn btn-primary w-100" @onclick="ToggleFormulario">
+            @((mostrarFormulario ? "Cerrar formulario" : "Asignar Responsable"))
+        </button>
+    </div>
+    <div class="col-md-8">
+        <input class="form-control" placeholder="Buscar por responsable o indicador..."
+               @bind="filtroTexto" />
+    </div>
+</div>
+
+@if (mostrarFormulario)
+{
+    <div class="card p-4 mb-4 shadow">
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label>Responsable</label>
+                <select class="form-control" @bind="nuevoResponsableId">
+                    <option value="">Seleccione</option>
+                    @foreach (var r in listaResponsables)
+                    {
+                        <option value="@r["id"]?.ToString()">
+                            @r["nombre"]?.ToString()
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>Indicador</label>
+                <select class="form-control" @bind="nuevoIndicadorId">
+                    <option value="">Seleccione</option>
+                    @foreach (var i in listaIndicadores)
+                    {
+                        <option value="@i["id"]?.ToString()">
+                            @i["nombre"]?.ToString()
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>Fecha de Asignación</label>
+                <input type="date" class="form-control" @bind="nuevaFechaAsignacion" />
+            </div>
+        </div>
+        <button class="btn btn-success w-100 mt-3" @onclick="CrearAsignacion">
+            Crear Asignación
+        </button>
+    </div>
+}
+
+@if (cargando)
+{
+    <p><em>Cargando...</em></p>
+}
+else
+{
+    @* Filtrar en memoria *@
+    var asignacionesFiltradas = asignaciones
+        .Where(a =>
+        {
+            var nomResp = ObtenerNombreResponsable(ObtenerValor(a, "fkidresponsable"));
+            var nomInd  = ObtenerNombreIndicador(ObtenerValor(a, "fkidindicador"));
+            return string.IsNullOrWhiteSpace(filtroTexto)
+                || nomResp.Contains(filtroTexto, StringComparison.OrdinalIgnoreCase)
+                || nomInd.Contains(filtroTexto, StringComparison.OrdinalIgnoreCase);
+        })
+        .ToList();
+
+    @if (!asignacionesFiltradas.Any())
+    {
+        <p>No hay asignaciones que coincidan con "<strong>@filtroTexto</strong>".</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered align-middle text-center">
+                <thead>
+                    <tr>
+                        <th>Responsable</th>
+                        <th>Indicador</th>
+                        <th>Fecha Asignación</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in asignacionesFiltradas)
+                    {
+                        var respId   = ObtenerValor(item, "fkidresponsable");
+                        var indId    = ObtenerValor(item, "fkidindicador");
+                        var fechaStr = ObtenerValor(item, "fechaasignacion");
+                        var nombreResp = ObtenerNombreResponsable(respId);
+                        var nombreInd  = ObtenerNombreIndicador(indId);
+
+                        <tr>
+                            <td>@nombreResp</td>
+                            <td>
+                                @if (editandoId == respId)
+                                {
+                                    <select class="form-control" @bind="indicadorEditado">
+                                        @foreach (var i in listaIndicadores)
+                                        {
+                                            <option value="@i["id"]?.ToString()">
+                                                @i["nombre"]?.ToString()
+                                            </option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    @nombreInd
+                                }
+                            </td>
+                            <td>
+                                @if (editandoId == respId)
+                                {
+                                    <input type="date" class="form-control" @bind="fechaAsignacionEditada" />
+                                }
+                                else
+                                {
+                                    @fechaStr
+                                }
+                            </td>
+                            <td>
+                                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                    @if (editandoId == respId)
+                                    {
+                                        <button class="btn btn-sm btn-success" @onclick="() => GuardarEdicion(respId)">
+                                            <i class="bi bi-check2"></i> Guardar
+                                        </button>
+                                        <button class="btn btn-sm btn-secondary" @onclick="CancelarEdicion">
+                                            <i class="bi bi-x-lg"></i> Cancelar
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-primary"
+                                                @onclick="() => EmpezarEdicion(respId, indId, fechaStr)">
+                                            <i class="bi bi-pencil-square"></i> Editar
+                                        </button>
+                                        <button class="btn btn-sm btn-danger"
+                                                @onclick="() => EliminarAsignacion(respId)">
+                                            <i class="bi bi-trash"></i> Eliminar
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@if (errorMensaje != null)
+{
+    <div class="alert alert-danger">
+        Error: @errorMensaje
+    </div>
+}
+
+@code {
+    private const string PROYECTO = "csharpapigenerica";
+    private const string TABLA    = "responsablesporindicador";
+
+    private List<Dictionary<string, object>> asignaciones       = new();
+    private List<Dictionary<string, object>> listaResponsables = new();
+    private List<Dictionary<string, object>> listaIndicadores  = new();
+
+    private bool cargando = true;
+    private string? errorMensaje = null;
+
+    // Crear
+    private string   nuevoResponsableId     = string.Empty;
+    private string   nuevoIndicadorId       = string.Empty;
+    private DateTime nuevaFechaAsignacion   = DateTime.Today;
+
+    // Editar
+    private string?  editandoId               = null;
+    private string   indicadorEditado         = string.Empty;
+    private DateTime fechaAsignacionEditada   = DateTime.Today;
+
+    // Filtro
+    private string filtroTexto = string.Empty;
+
+    private bool mostrarFormulario = false;
+    private void ToggleFormulario() => mostrarFormulario = !mostrarFormulario;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsignaciones();
+        await CargarListasSelect();
+    }
+
+    private async Task CargarAsignaciones()
+    {
+        cargando = true;
+        errorMensaje = null;
+        try
+        {
+            var res = await servicioEntidad.ObtenerTodosAsync(PROYECTO, TABLA);
+            asignaciones = res ?? new();
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al cargar asignaciones: {ex.Message}";
+            asignaciones = new();
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task CargarListasSelect()
+    {
+        listaResponsables = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "actor")     ?? new();
+        listaIndicadores  = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "indicador") ?? new();
+    }
+
+    private string ObtenerValor(Dictionary<string, object> dict, string key)
+        => dict.TryGetValue(key, out var v) ? v?.ToString() ?? "" : "";
+
+    private string ObtenerNombreResponsable(string id)
+        => listaResponsables.FirstOrDefault(r => r["id"]?.ToString() == id)?
+           .GetValueOrDefault("nombre")?.ToString() ?? "(Desconocido)";
+
+    private string ObtenerNombreIndicador(string id)
+        => listaIndicadores.FirstOrDefault(i => i["id"]?.ToString() == id)?
+           .GetValueOrDefault("nombre")?.ToString() ?? "(Desconocido)";
+
+    private async Task CrearAsignacion()
+    {
+        errorMensaje = null;
+        if (string.IsNullOrWhiteSpace(nuevoResponsableId)
+         || string.IsNullOrWhiteSpace(nuevoIndicadorId))
+        {
+            errorMensaje = "Responsable e Indicador son obligatorios.";
+            return;
+        }
+
+        try
+        {
+            var nueva = new Dictionary<string, object?>
+            {
+                ["fkidresponsable"] = nuevoResponsableId,
+                ["fkidindicador"]   = nuevoIndicadorId,
+                ["fechaasignacion"] = nuevaFechaAsignacion.ToString("yyyy-MM-dd")
+            };
+
+            var ok = await servicioEntidad.CrearAsync(PROYECTO, TABLA, nueva);
+            if (ok)
+            {
+                await CargarAsignaciones();
+                nuevoResponsableId   = "";
+                nuevoIndicadorId     = "";
+                nuevaFechaAsignacion = DateTime.Today;
+                mostrarFormulario    = false;
+            }
+            else
+            {
+                errorMensaje = "La API rechazó la creación.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al crear: {ex.Message}";
+        }
+    }
+
+    private void EmpezarEdicion(string respId, string indId, string fechaStr)
+    {
+        editandoId            = respId;
+        indicadorEditado      = indId;
+        fechaAsignacionEditada = DateTime.TryParse(fechaStr, out var dt) ? dt : DateTime.Today;
+    }
+
+    private void CancelarEdicion()
+    {
+        editandoId            = null;
+        indicadorEditado      = "";
+        fechaAsignacionEditada = DateTime.Today;
+    }
+
+    private async Task GuardarEdicion(string respId)
+    {
+        errorMensaje = null;
+        try
+        {
+            var datos = new Dictionary<string, object?>
+            {
+                ["fkidresponsable"] = respId,
+                ["fkidindicador"]   = indicadorEditado,
+                ["fechaasignacion"] = fechaAsignacionEditada.ToString("yyyy-MM-dd")
+            };
+
+            var ok = await servicioEntidad.ActualizarAsync(
+                PROYECTO, TABLA, "fkidresponsable", respId, datos
+            );
+
+            if (ok)
+            {
+                await CargarAsignaciones();
+                CancelarEdicion();
+            }
+            else
+            {
+                errorMensaje = "La API rechazó la actualización.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al actualizar: {ex.Message}";
+        }
+    }
+
+    private async Task EliminarAsignacion(string respId)
+    {
+        errorMensaje = null;
+        var conf = await JSRuntime.InvokeAsync<bool>(
+            "confirm",
+            $"¿Seguro que quieres eliminar la asignación del responsable {respId}?"
+        );
+        if (!conf) return;
+
+        try
+        {
+            var ok = await servicioEntidad.EliminarAsync(
+                PROYECTO, TABLA, "fkidresponsable", respId
+            );
+            if (ok)
+                await CargarAsignaciones();
+            else
+                errorMensaje = "La API no pudo eliminar la asignación.";
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al eliminar: {ex.Message}";
+        }
+    }
+}

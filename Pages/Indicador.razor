@@ -1,0 +1,662 @@
+@page "/indicador"  
+@using System.Collections.Generic  
+@using System.Text.Json  
+@using Services  
+@inject ServicioEntidad servicioEntidad
+@inject NavigationManager navegacionManager 
+@inherits ValidacionAcceso 
+
+<PageTitle>Lista de indicadores</PageTitle>  
+
+<h1 class="mb-4 text-primary">Indicadores</h1>
+
+
+<button class="btn btn-primary mb-3" @onclick="ToggleFormulario">
+    @((mostrarFormulario ? "Cerrar formulario" : "Crear Indicador"))
+</button>
+
+<!-- Formulario oculto al inicio -->
+@if (mostrarFormulario)
+{
+    <div class="card p-4 mb-4 shadow">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label>Código</label>
+                <input class="form-control" @bind="nuevoCodigo" placeholder="Código" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Nombre del Indicador</label>
+                <input class="form-control" @bind="nuevoNombre" placeholder="Nombre" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Objetivo</label>
+                <input class="form-control" @bind="nuevoObjetivo" placeholder="Objetivo" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Alcance</label>
+                <input class="form-control" @bind="nuevoAlcance" placeholder="Alcance" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Fórmula</label>
+                <input class="form-control" @bind="nuevoFormula" placeholder="Fórmula" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Tipo de Indicador</label>
+                <select class="form-control" @bind="nuevoTipoIndicador">
+                    <option value="">Seleccione</option>
+                    @foreach (var tipo in listaTiposIndicador)
+                    {
+                        <option value="@tipo["id"]?.ToString()">@tipo["nombre"]?.ToString()</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Unidad de Medición</label>
+                <select class="form-control" @bind="nuevoUnidadMedicion">
+                    <option value="">Seleccione</option>
+                    @foreach (var unidad in listaUnidadesMedicion)
+                    {
+                        <option value="@unidad["id"]">@unidad["descripcion"].ToString()</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Meta</label>
+                <input class="form-control" @bind="nuevoMeta" placeholder="Meta" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Sentido</label>
+                <select class="form-control" @bind="nuevoSentido">
+                    <option value="">Seleccione</option>
+                    @foreach (var sentido in listaSentidos)
+                    {
+                        <option value="@sentido["id"]?.ToString()">@sentido["nombre"]?.ToString()</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Artículo</label>
+                <select class="form-control" @bind="nuevoArticulo">
+                    <option value="">Seleccione</option>
+                    @foreach (var articulo in listaArticulos)
+                    {
+                        <option value="@articulo["id"]?.ToString()">@articulo["nombre"]?.ToString()</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Literal</label>
+                <select class="form-control" @bind="nuevoLiteral">
+                    <option value="">Seleccione</option>
+                    @foreach (var literal in listaLiterales)
+                    {
+                        <option value="@literal["id"]?.ToString()">@literal["descripcion"]?.ToString()</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Numeral</label>
+                <select class="form-control" @bind="nuevoNumeral">
+                    <option value="">Seleccione</option>
+                    @foreach (var numeral in listaNumerales)
+                    {
+                        <option value="@numeral["id"]?.ToString()">@numeral["descripcion"]?.ToString()</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Parágrafo</label>
+                <select class="form-control" @bind="nuevoParagrafo">
+                    <option value="">Seleccione</option>
+                    @foreach (var paragrafo in listaParagrafos)
+                    {
+                        <option value="@paragrafo["id"]?.ToString()">@paragrafo["descripcion"]?.ToString()</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <button class="btn btn-success w-100 mt-3" @onclick="CrearIndicador">Crear Indicador</button>
+    </div>
+}
+
+
+
+<!-- Bloque condicional que muestra un indicador de carga si los datos están cargando -->
+<!-- Si no está cargando pero no hay represen visual o la lista es nula, muestra un mensaje informativo -->
+<!-- Si hay represen visual para mostrar, muestra la tabla -->
+@if (cargando)
+{
+    <p><em>Cargando...</em></p>  <!-- Mensaje de carga con énfasis (cursiva) -->
+}
+else if (indicadores == null || indicadores.Count == 0)
+{
+    <p>No hay indicadores disponibles.</p>  <!-- Mensaje cuando no hay represen visual para mostrar -->
+}
+else
+{
+    <div class="table-responsive">
+    <table class="table table-striped table-bordered align-middle text-center">
+        <thead>
+            <tr>
+            <th>id</th>
+            <th>Codigo</th>
+            <th>Nombre</th>
+            <th>Objetivo</th>
+            <th>Alcance</th>
+            <th>Formula</th>
+            <th>Tipo indicador</th>
+            <th>Unidad Medicion</th>
+            <th>Meta</th>
+            <th>Sentido</th>
+            <th>Frecuencia</th>
+            <th>Articulo</th>
+            <th>Literal</th>
+            <th>Numeral</th>
+            <th>Paragrafo</th>
+            <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var indicador in indicadores)
+            {
+                var id = ObtenerValor(indicador, "id");
+                var codigo = ObtenerValor(indicador, "codigo");
+                var nombre = ObtenerValor(indicador, "nombre");
+                var objetivo = ObtenerValor(indicador, "objetivo");
+                var alcance = ObtenerValor(indicador, "alcance");
+                var formula = ObtenerValor(indicador, "formula");
+                var tipoIndicador = ObtenerValor(indicador, "fkidtipoindicador");
+                var unidadMedicion = ObtenerValor(indicador, "fkidunidadmedicion");
+                var meta = ObtenerValor(indicador, "meta");
+                var sentido = ObtenerValor(indicador, "fkidsentido");
+                var frecuencia = ObtenerValor(indicador, "fkidfrecuencia");
+                var articulo = ObtenerValor(indicador, "fkidarticulo");
+                var literal = ObtenerValor(indicador, "fkidliteral");
+                var numeral = ObtenerValor(indicador, "fkidnumeral");
+                var paragrafo = ObtenerValor(indicador, "fkidparagrafo");
+                
+                <tr>
+                    <!-- Muestra el ID del elemento -->
+                    <td>@id</td>
+                    <td>
+                        @if (editandoId == id) // estamos editando este elemento específico
+                        {
+                            <!-- Muestra un input para editar el nombre -->
+                            <input @bind="codigoEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            <!-- Muestra el nombre tal cual si no se está editando -->
+                            @codigo
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) 
+                        {
+                            
+                            <input @bind="nombreEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            
+                            @nombre
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) 
+                        {
+                            
+                            <input @bind="objetivoEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            
+                            @objetivo
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) 
+                        {
+                            
+                            <input @bind="alcanceEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            
+                            @alcance
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) 
+                        {
+                            
+                            <input @bind="formulaEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            
+                            @formula
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) 
+                        {
+                            
+                            <input @bind="tipoIndicadorEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            
+                            @tipoIndicador
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) 
+                        {
+                            
+                            <input @bind="unidadMedicionEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            
+                            @unidadMedicion
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) 
+                        {
+                            
+                            <input @bind="metaEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            
+                            @meta
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) 
+                        {
+                            
+                            <input @bind="sentidoEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            
+                            @sentido
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) 
+                        {
+                            
+                            <input @bind="frecuenciaEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            
+                            @frecuencia
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) 
+                        {
+                            
+                            <input @bind="articuloEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            
+                            @articulo
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) 
+                        {
+                            
+                            <input @bind="literalEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            
+                            @literal
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) 
+                        {
+                            
+                            <input @bind="numeralEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            
+                            @numeral
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) 
+                        {
+                            
+                            <input @bind="paragrafoEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            
+                            @paragrafo
+                        }
+                    </td>
+                    <td>
+                        <div class="d-flex justify-content-center gap-2 flex-wrap">
+                            @if (editandoId == id)
+                            {
+                                <button class="btn btn-sm btn-success" @onclick="() => GuardarEdicion(id)">
+                                    <i class="bi bi-check2"></i> Guardar
+                                </button>
+                                <button class="btn btn-sm btn-secondary" @onclick="CancelarEdicion">
+                                    <i class="bi bi-x-lg"></i> Cancelar
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-primary" @onclick="() => EmpezarEdicion(id, codigo, nombre, objetivo, alcance, formula, int.Parse(tipoIndicador), int.Parse(unidadMedicion), meta, int.Parse(sentido), int.Parse(frecuencia), articulo, literal, numeral, paragrafo)">
+                                    <i class="bi bi-pencil-square"></i> Editar
+                                </button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => EliminarIndicador(id)">
+                                    <i class="bi bi-trash"></i> Eliminar
+                                </button>
+                            }
+                        </div>
+                    </td>
+
+                </tr>
+                }
+        </tbody>
+    </table>
+    </div>
+
+}
+
+<!-- Mostrar mensaje de error si existe -->
+@if (errorMensaje != null)
+{
+    <div class="alert alert-danger">
+        Error: @errorMensaje
+    </div>
+}
+
+@code {
+    // Lista para almacenar los productos que se obtienen de la API
+    private List<Dictionary<string, object>> indicadores = new List<Dictionary<string, object>>();
+    private List<Dictionary<string, object>> listaTiposIndicador = new();
+    private List<Dictionary<string, object>> listaUnidadesMedicion = new();
+    private List<Dictionary<string, object>> listaSentidos = new();
+    private List<Dictionary<string, object>> listaFrecuencias = new();
+    private List<Dictionary<string, object>> listaArticulos = new();
+    private List<Dictionary<string, object>> listaLiterales = new();
+    private List<Dictionary<string, object>> listaNumerales = new();
+    private List<Dictionary<string, object>> listaParagrafos = new();
+
+    // Bandera para indicar si se están cargando los datos
+    private bool cargando = true;
+    
+    // Variable para almacenar mensajes de error
+    private string? errorMensaje = null;
+
+    // Variables para crear
+    private string nuevoNombre = string.Empty;
+    private string nuevoCodigo = string.Empty;
+    private string nuevoObjetivo = string.Empty;
+    private string nuevoAlcance = string.Empty;
+    private string nuevoFormula = string.Empty;
+    private int? nuevoTipoIndicador = 0;
+    private int? nuevoUnidadMedicion = 0;
+    private string nuevoMeta = string.Empty;
+    private int? nuevoSentido = 0;
+    private int? nuevoFrecuencia = 0;
+    private string nuevoArticulo = string.Empty;
+    private string nuevoLiteral = string.Empty;
+    private string nuevoNumeral = string.Empty;
+    private string nuevoParagrafo = string.Empty;
+    
+
+    // Variables para editar
+    private string? editandoId = null;
+    private string nombreEditado = string.Empty;
+    private string codigoEditado = string.Empty;
+    private string objetivoEditado = string.Empty;
+    private string alcanceEditado = string.Empty;
+    private string formulaEditado = string.Empty;
+    private int? tipoIndicadorEditado = 0;
+    private int? unidadMedicionEditado = 0;
+    private string metaEditado = string.Empty;
+    private int? sentidoEditado = 0;
+    private int? frecuenciaEditado = 0;
+    private string articuloEditado = string.Empty;
+    private string literalEditado = string.Empty;
+    private string numeralEditado = string.Empty;
+    private string paragrafoEditado = string.Empty;
+    
+
+    
+
+
+    private bool mostrarFormulario = false;
+
+    private void ToggleFormulario()
+    {
+        mostrarFormulario = !mostrarFormulario;
+    }   
+
+    // Constantes para los parámetros de la API
+    private const string PROYECTO = "csharpapigenerica";
+    private const string TABLA = "indicador";
+
+    // Método que se ejecuta cuando se inicializa el componente
+    protected override async Task OnInitializedAsync()
+    {
+        // Llamar al método para cargar los represen visual
+        await CargarIndicador();
+        await CargarListasSelect();
+    }
+
+    private async Task CargarIndicador()
+    {
+        cargando = true;
+        errorMensaje = null;
+        
+        try
+        {
+            var resultado = await servicioEntidad.ObtenerTodosAsync(PROYECTO, TABLA);
+            
+            if (resultado != null)
+            {
+                indicadores = resultado;
+            }
+            else
+            {
+                indicadores = new List<Dictionary<string, object>>();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al cargar indicador: {ex.Message}";
+            indicadores = new List<Dictionary<string, object>>();
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task CargarListasSelect()
+    {
+        listaTiposIndicador = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "tipoindicador") ?? new List<Dictionary<string, object>>();
+        listaUnidadesMedicion = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "unidadmedicion")?? new List<Dictionary<string, object>>();
+        listaFrecuencias = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "frecuencia")?? new List<Dictionary<string, object>>();
+        listaSentidos = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "sentido")?? new List<Dictionary<string, object>>();
+        listaArticulos = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "articulo")?? new List<Dictionary<string, object>>();
+        listaLiterales = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "literal")?? new List<Dictionary<string, object>>();
+        listaNumerales = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "numeral")?? new List<Dictionary<string, object>>();
+        listaParagrafos = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "paragrafo")?? new List<Dictionary<string, object>>();
+    }
+
+
+    // Método para obtener un valor específico de un diccionario de manera segura
+    private string ObtenerValor(Dictionary<string, object> diccionario, string clave)
+    {
+        if (diccionario == null)
+            return string.Empty;
+            
+        if (diccionario.TryGetValue(clave, out var valor))
+        {
+            return valor?.ToString() ?? string.Empty;
+        }
+        
+        return string.Empty;
+    }
+
+    // Crear nuevo represen visual
+    private async Task CrearIndicador()
+    {
+        if (!string.IsNullOrWhiteSpace(nuevoNombre))
+        {
+            var nuevoIndicador = new Dictionary<string, object>
+        {
+            { "codigo", nuevoCodigo },
+            { "nombre", nuevoNombre },
+            { "objetivo", nuevoObjetivo},
+            { "alcance", nuevoAlcance },
+            { "formula", nuevoFormula },
+            { "fkidtipoindicador", nuevoTipoIndicador!},
+            { "fkidunidadmedicion", nuevoUnidadMedicion! },
+            { "meta", nuevoMeta },
+            { "fkidsentido", nuevoSentido! },
+            { "fkidfrecuencia", nuevoFrecuencia! },
+            { "fkidarticulo", nuevoArticulo },
+            { "fkidliteral", nuevoLiteral },
+            { "fkidnumeral", nuevoNumeral },
+            { "fkidparagrafo", nuevoParagrafo },
+        };
+
+        var exito = await servicioEntidad.CrearAsync(PROYECTO, TABLA, nuevoIndicador);
+        if (exito)
+        {
+            await CargarIndicador(); 
+            nuevoNombre = string.Empty; 
+        }
+        else
+        {
+            errorMensaje = "No se pudo crear el indicador.";
+        }
+    }
+}
+
+    // Iniciar edición
+    private void EmpezarEdicion(string id, string nombreActual, string codigoActual, string objetivoActual, string alcanceActual, string formulaActual, int tipoIndicadorActual, int unidadMedicionActual, string metaActual, int sentidoActual, int FrecuenciaActual, string articuloActual, string literalActuar, string numeralActual, string paragrafoActual)
+    {
+        editandoId = id;
+        nombreEditado = nombreActual;
+        codigoEditado = codigoActual;
+        objetivoEditado = objetivoActual;
+        alcanceEditado = alcanceActual;
+        formulaEditado = formulaActual;
+        tipoIndicadorEditado = tipoIndicadorActual;
+        unidadMedicionEditado = unidadMedicionActual;
+        metaEditado = metaActual;
+        sentidoEditado = sentidoActual;
+        frecuenciaEditado = FrecuenciaActual;
+        articuloEditado = articuloActual;
+        literalEditado = literalActuar;
+        numeralEditado = numeralActual;
+        paragrafoEditado = paragrafoActual;
+    }
+
+    // Cancelar edición
+    private void CancelarEdicion()
+    {
+    editandoId = null;
+    nombreEditado = string.Empty;
+    codigoEditado = string.Empty;
+    objetivoEditado = string.Empty;
+    alcanceEditado = string.Empty;
+    formulaEditado = string.Empty;
+    tipoIndicadorEditado = null;
+    unidadMedicionEditado = null;
+    metaEditado = string.Empty;
+    sentidoEditado = null;
+    frecuenciaEditado = null;
+    articuloEditado = string.Empty;
+    literalEditado = string.Empty;
+    numeralEditado = string.Empty;
+    paragrafoEditado = string.Empty;
+    }
+
+    // Guardar cambios de edición
+    private async Task GuardarEdicion(string id)
+    {
+        try
+        {
+            var datos = new Dictionary<string, object?>
+        {
+            { "nombre", nombreEditado }, 
+            { "objetivo", objetivoEditado},
+            { "alcance", alcanceEditado },
+            { "formula", formulaEditado },
+            { "fkidtipoindicador", tipoIndicadorEditado },
+            { "fkidunidadmedicion", unidadMedicionEditado },
+            { "meta", metaEditado },
+            { "fkidsentido", sentidoEditado },
+            { "fkidfrecuencia", frecuenciaEditado },
+            { "fkidarticulo", articuloEditado },
+            { "fkidliteral", literalEditado },
+            { "fkidnumeral", numeralEditado },
+            { "fkidparagrafo", paragrafoEditado },
+        };
+
+        // Llama al servicio para actualizar el registro en la base de datos
+        var exito = await servicioEntidad.ActualizarAsync(
+            PROYECTO, 
+            TABLA, 
+            "id",        // nombre de la columna clave
+            id,          // valor de la clave
+            datos
+        );
+
+        if (exito)
+        {
+            await CargarIndicador(); 
+            CancelarEdicion();
+        }
+        else
+        {
+            errorMensaje = "No se pudo actualizar el indicador.";
+        }
+    }
+    catch (Exception ex)
+    {
+        errorMensaje = $"Error al actualizar: {ex.Message}";
+    }
+}
+
+    // Eliminar
+    private async Task EliminarIndicador(string id)
+    {
+        var confirmado = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Estás seguro de eliminar el indicador con ID {id}?");
+        if (confirmado)
+        {
+            var exito = await servicioEntidad.EliminarAsync(PROYECTO, TABLA, "id", id);
+            if (exito)
+            {
+                await CargarIndicador();
+            }
+            else
+            {
+                errorMensaje = "No se pudo eliminar el represen visual.";
+            }
+        }
+    }
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    }

@@ -1,0 +1,115 @@
+@page "/Fuente/editar/{id}"
+@using System.Collections.Generic  
+@using System.Text.Json  
+@using FrontBlazor.Services  
+@inject ServicioEntidad servicioEntidad  
+@inject NavigationManager navegacionManager  
+@inherits ValidacionAcceso
+<PageTitle>Editar Fuente</PageTitle>
+
+<h3>Editar Fuente</h3>
+
+@if (errorMensaje != null)
+{
+    <div class="alert alert-danger">
+        Error: @errorMensaje
+    </div>
+}
+
+@if (modelo != null)
+{
+    <EditForm Model="modelo" OnValidSubmit="Guardar">
+        <DataAnnotationsValidator />
+
+        <div class="mb-3">
+            <label class="form-label">Nombre</label>
+            <InputText @bind-Value="modelo.Nombre" class="form-control" />
+            <ValidationMessage For="@(() => modelo.Nombre)" />
+        </div>
+
+        <button type="submit" class="btn btn-success">Guardar Cambios</button>
+        <button type="button" class="btn btn-secondary" @onclick="Cancelar">Cancelar</button>
+    </EditForm>
+}
+else
+{
+    <p>Cargando datos...</p>
+}
+
+@code {
+    [Parameter] public string? Id { get; set; }
+
+    private FuenteModel? modelo;
+    private string? errorMensaje = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Id))
+        {
+            errorMensaje = "ID no válido.";
+            return;
+        }
+
+        try
+        {
+            var datos = await servicioEntidad.ObtenerPorClaveAsync("proyecto", "Fuente", "id", Id);
+
+            if (datos == null)
+            {
+                errorMensaje = "El Fuente no fue encontrado.";
+                return;
+            }
+
+            modelo = new FuenteModel
+            {
+                Nombre = datos.ContainsKey("nombre") ? datos["nombre"]?.ToString() ?? "" : ""
+            };
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al cargar datos: {ex.Message}";
+        }
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            if (modelo == null || string.IsNullOrWhiteSpace(modelo.Nombre))
+            {
+                errorMensaje = "El nombre no puede estar vacío.";
+                return;
+            }
+
+            var datos = new Dictionary<string, object>
+            {
+                { "nombre", modelo.Nombre }
+            };
+
+            bool actualizado = await servicioEntidad.ActualizarAsync("proyecto", "Fuente", "id", Id!, datos);
+
+            if (actualizado)
+            {
+                navegacionManager.NavigateTo("/Fuente");
+            }
+            else
+            {
+                errorMensaje = "No se pudo actualizar el Fuente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al actualizar: {ex.Message}";
+        }
+    }
+
+    private void Cancelar()
+    {
+        navegacionManager.NavigateTo("/Fuente");
+    }
+
+    private class FuenteModel
+    {
+        public string Nombre { get; set; } = string.Empty;
+    }
+}

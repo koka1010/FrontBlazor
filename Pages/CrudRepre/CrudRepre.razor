@@ -1,0 +1,85 @@
+@page "/crearRepre"  
+@using System.Collections.Generic  
+@using System.Text.Json  
+@using Microsoft.AspNetCore.Components.Web
+@using FrontBlazor.Services  
+@inject ServicioEntidad servicioEntidad  
+@inject NavigationManager navegacionManager  
+@inherits ValidacionAcceso
+<PageTitle>Representació Visual</PageTitle>
+
+<h3>Lista de Representació Visual</h3>
+
+@if (Repres is null)
+{
+    <p>Cargando...</p>
+}
+else if (Repres.Count == 0)
+{
+    <p>No hay registros.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var Repre in Repres)
+            {
+                <tr>
+                    <td>@Repre["id"]</td>
+                    <td>@Repre["nombre"]</td>
+                    <td>
+                        <button class="btn btn-warning" @onclick="() => EditarRepre(ObtenerId(Repre))">Editar</button>
+                        <button class="btn btn-danger" @onclick="async () => await EliminarRepre(ObtenerId(Repre))">Eliminar</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<button class="btn btn-primary" @onclick="CrearRepre">Agregar Representació Visual</button>
+
+@code {
+    private List<Dictionary<string, object>>? Repres;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Repres = await servicioEntidad.ObtenerTodosAsync("proyecto", "represenvisual");
+    }
+
+    private void CrearRepre()
+    {
+        navegacionManager.NavigateTo("/Repre/crear");
+    }
+
+    private void EditarRepre(string id)
+    {
+        navegacionManager.NavigateTo($"/Repre/editar/{id}");
+    }
+
+    private async Task EliminarRepre(string id)
+    {
+        bool confirmado = await servicioEntidad.EliminarAsync("proyecto", "represenvisual", "id", id);
+        if (confirmado)
+        {
+            Repres = await servicioEntidad.ObtenerTodosAsync("proyecto", "represenvisual");
+            StateHasChanged();
+        }
+    }
+
+    private string ObtenerId(Dictionary<string, object> Repre)
+{
+    if (Repre.TryGetValue("id", out var idValor) && idValor != null)
+    {
+        return idValor.ToString() ?? "";
+    }
+    return ""; // Retorna cadena vacía si no encuentra el id
+}
+}

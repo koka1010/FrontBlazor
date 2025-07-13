@@ -1,0 +1,469 @@
+@page "/tipoindicador"
+@using System.Collections.Generic
+@using System.Threading.Tasks
+@using Services
+@inject ServicioEntidad servicioEntidad         // Inyección del servicio para operaciones CRUD
+@inject NavigationManager navegacionManager       // Inyección del NavigationManager (no se usa en este fragmento)
+@inherits ValidacionAcceso
+<div class="container-xl">
+    <div class="table-responsive">
+        <div class="table-wrapper">
+            <div class="table-title">
+                <div class="row">
+                    <div class="col-sm-6">
+                        <h2>Administrar <b>Tipo Indicador</b></h2>
+                    </div>
+                    <div class="col-sm-6">
+                        <!-- Botón para mostrar modal de eliminación múltiple -->
+                        <button class="btn btn-danger btn-sm" @onclick="MostrarModalEliminarMultiples">
+                            <i class="material-icons">&#xE15C;</i> <span>Eliminar</span>
+                        </button>
+
+                        <!-- Botón para mostrar modal de agregar tipoindicador -->
+                        <button class="btn btn-success btn-sm" @onclick="AbrirModal">
+                            <i class="material-icons">&#xE147;</i> <span>Agregar</span>
+                        </button>
+
+                        <!-- Botón para editar el tipoindicador seleccionado -->
+                        <button class="btn btn-info btn-sm" @onclick="() => EditartipoindicadorSeleccionado()">
+                            <i class="material-icons">&#xE254;</i> <span>Editar Seleccionado</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Muestra un mensaje de carga mientras se obtienen datos -->
+            @if (cargando)
+            {
+                <p><em>Cargando...</em></p>
+            }
+            // Verifica si la lista de tipoindicador es nula o vacía
+            else if (tipoindicadores == null || tipoindicadores.Count == 0)
+            {
+                <p>No hay tipoindicador disponibles.</p>
+            }
+            else
+            {
+                <!-- Tabla con los tipoindicadors obtenidos -->
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>
+                                <!-- Check global para seleccionar todos los tipoindicadors -->
+                                <span class="custom-checkbox">
+                                    <input type="checkbox" @bind="@seleccionarTodos">
+                                    <label></label>
+                                </span>
+                            </th>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var tipoindicador in tipoindicadores)
+                        {
+                            <tr>
+                                <td>
+                                    <!-- Check individual para cada tipoindicador -->
+                                    <span class="custom-checkbox">
+                                        <input type="checkbox" @bind="@tipoindicadorSeleccionado[tipoindicador]">
+                                        <label></label>
+                                    </span>
+                                </td>
+                                <!-- Muestra el ID y nombre del tipoindicador usando el método ObtenerValor -->
+                                <td>@ObtenerValor(tipoindicador, "id")</td>
+                                <td>@ObtenerValor(tipoindicador, "nombre")</td>
+                                <td>
+                                    <!-- Enlace para editar un tipoindicador en particular -->
+                                    <a href="#" class="edit" @onclick="() => Editartipoindicador(tipoindicador)" @onclick:preventDefault>
+                                        <i class="material-icons" title="Editar">&#xE254;</i>
+                                    </a>
+                                    <!-- Enlace para eliminar un tipoindicador en particular -->
+                                    <a href="#" class="delete" @onclick="() => Eliminartipoindicador(tipoindicador)" @onclick:preventDefault>
+                                        <i class="material-icons" title="Eliminar">&#xE872;</i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal para agregar un tipoindicador -->
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <!-- Formulario que al enviarse ejecuta Guardartipoindicador -->
+                <form @onsubmit="Guardartipoindicador">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Agregar tipoindicador</h4>
+                        <!-- Botón para cerrar el modal -->
+                        <button type="button" class="close" @onclick="CerrarModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Campo para ingresar el nombre del tipoindicador -->
+                        <div class="form-group">
+                            <label>Nombre</label>
+                            <input type="text" class="form-control" @bind="nombretipoindicador" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <!-- Botones para cancelar o guardar -->
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal para editar un tipoindicador -->
+@if (mostrarModalEditar)
+{
+    <div class="modal fade show d-block" style="background: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <!-- Formulario que al enviarse ejecuta Actualizartipoindicador -->
+                <form @onsubmit="Actualizartipoindicador">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Editar tipoindicador</h4>
+                        <!-- Botón para cerrar el modal de edición -->
+                        <button type="button" class="close" @onclick="CerrarModalEditar">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Se muestra el ID del tipoindicador, pero está deshabilitado para no editarlo -->
+                        <div class="form-group">
+                            <label>ID</label>
+                            <input type="text" class="form-control" @bind="idtipoindicadorEditar" disabled>
+                        </div>
+                        <!-- Campo para editar el nombre del tipoindicador -->
+                        <div class="form-group">
+                            <label>Nombre</label>
+                            <input type="text" class="form-control" @bind="nombretipoindicadorEditar" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <!-- Botones para cancelar o actualizar -->
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModalEditar">Cancelar</button>
+                        <button type="submit" class="btn btn-info">Actualizar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal para confirmar eliminación individual -->
+@if (mostrarModalEliminar)
+{
+    <div class="modal fade show d-block" style="background: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <!-- Formulario que al enviarse ejecuta ConfirmarEliminartipoindicador -->
+                <form @onsubmit="ConfirmarEliminartipoindicador">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Eliminar tipoindicador</h4>
+                        <button type="button" class="close" @onclick="CerrarModalEliminar">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Mensaje de confirmación para eliminación -->
+                        <p>¿Está seguro de que desea eliminar este tipoindicador?</p>
+                        <p class="text-warning"><small>Esta acción no se puede deshacer.</small></p>
+                    </div>
+                    <div class="modal-footer">
+                        <!-- Botones para cancelar o confirmar eliminación -->
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModalEliminar">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal para confirmar eliminación múltiple -->
+@if (mostrarModalEliminarMultiples)
+{
+    <div class="modal fade show d-block" style="background: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <!-- Formulario que al enviarse ejecuta ConfirmarEliminarSeleccionados -->
+                <form @onsubmit="ConfirmarEliminarSeleccionados">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Eliminar tipoindicador Seleccionados</h4>
+                        <button type="button" class="close" @onclick="CerrarModalEliminarMultiples">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Mensaje de confirmación para la eliminación múltiple -->
+                        <p>¿Está seguro de que desea eliminar los tipoindicador seleccionados?</p>
+                        <p class="text-warning"><small>Esta acción no se puede deshacer.</small></p>
+                    </div>
+                    <div class="modal-footer">
+                        <!-- Botones para cancelar o confirmar la eliminación -->
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModalEliminarMultiples">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // Lista de tipoindicadors recuperados del servicio
+    private List<Dictionary<string, object>> tipoindicadores = new List<Dictionary<string, object>>();
+    // Diccionario que mantiene la selección de cada tipoindicador (checkbox)
+    private Dictionary<Dictionary<string, object>, bool> tipoindicadorSeleccionado = new();
+    // Bandera que indica si se está cargando la información
+    private bool cargando = true;
+    // Variable para almacenar mensajes de error
+    private string? errorMensaje = null;
+
+    // Variables para controlar la visualización de los modales
+    private bool mostrarModal = false;
+    private bool mostrarModalEditar = false;
+    private bool mostrarModalEliminar = false;
+    private bool mostrarModalEliminarMultiples = false;
+
+    // Variables para almacenar datos en formularios (crear y editar)
+    private string nombretipoindicador = "";
+    private string idtipoindicadorEditar = "";
+    private string nombretipoindicadorEditar = "";
+    private Dictionary<string, object>? tipoindicadorParaEditar = null;
+    private Dictionary<string, object>? tipoindicadorParaEliminar = null;
+
+    // Se ejecuta al inicializar la página: se carga la lista de tipoindicadors
+    protected override async Task OnInitializedAsync()
+    {
+        await Cargartipoindicadores();
+    }
+
+    // Método para cargar todos los tipoindicadors usando el servicio inyectado
+    private async Task Cargartipoindicadores()
+    {
+        cargando = true;
+        try
+        {
+            var resultado = await servicioEntidad.ObtenerTodosAsync("proyecto", "tipoindicador");
+            tipoindicadores = resultado ?? new List<Dictionary<string, object>>();
+            // Inicializa el diccionario de selección para cada tipoindicador
+            tipoindicadorSeleccionado = tipoindicadores.ToDictionary(p => p, p => false);
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al cargar tipoindicador: {ex.Message}";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    // Abre el modal para agregar un nuevo tipoindicador y reinicia el campo de nombre
+    private void AbrirModal()
+    {
+        mostrarModal = true;
+        nombretipoindicador = "";
+    }
+
+    // Cierra el modal de creación
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+    }
+
+    // Método que se ejecuta al enviar el formulario para guardar un nuevo tipoindicador
+    private async Task Guardartipoindicador()
+    {
+        // Validación del campo nombre
+        if (string.IsNullOrEmpty(nombretipoindicador))
+        {
+            errorMensaje = "El nombre es obligatorio";
+            return;
+        }
+
+        // Crea un diccionario con los datos del nuevo tipoindicador
+        var nuevotipoindicador = new Dictionary<string, object>
+        {
+            { "nombre", nombretipoindicador }
+        };
+
+        // Llama al servicio para crear el tipoindicador
+        bool resultado = await servicioEntidad.CrearAsync("proyecto", "tipoindicador", nuevotipoindicador);
+
+        if (resultado)
+        {
+            await Cargartipoindicadores();
+            CerrarModal();
+        }
+        else
+        {
+            errorMensaje = "Error al guardar el tipoindicador";
+        }
+    }
+
+    // Método para abrir el modal de edición con los datos del tipoindicador seleccionado
+    private void Editartipoindicador(Dictionary<string, object> tipoindicador)
+    {
+        tipoindicadorParaEditar = tipoindicador;
+        idtipoindicadorEditar = ObtenerValor(tipoindicador, "id");
+        nombretipoindicadorEditar = ObtenerValor(tipoindicador, "nombre");
+        mostrarModalEditar = true;
+    }
+
+    // Método que se ejecuta al enviar el formulario de edición; actualiza el tipoindicador
+    private async Task Actualizartipoindicador()
+    {
+        // Validación: se requiere que exista un tipoindicador seleccionado y un nombre no vacío
+        if (tipoindicadorParaEditar == null || string.IsNullOrEmpty(nombretipoindicadorEditar))
+        {
+            errorMensaje = "El nombre es obligatorio";
+            return;
+        }
+
+        // Diccionario con los datos actualizados
+        var datosActualizados = new Dictionary<string, object>
+        {
+            { "nombre", nombretipoindicadorEditar }
+        };
+
+        // Llama al servicio para actualizar el tipoindicador especificado
+        bool resultado = await servicioEntidad.ActualizarAsync(
+            "proyecto", 
+            "tipoindicador", 
+            "id", 
+            idtipoindicadorEditar, 
+            datosActualizados);
+
+        if (resultado)
+        {
+            await Cargartipoindicadores();
+            CerrarModalEditar();
+        }
+        else
+        {
+            errorMensaje = "Error al actualizar el tipoindicador";
+        }
+    }
+
+    // Método para abrir el modal de confirmación de eliminación individual
+    private void Eliminartipoindicador(Dictionary<string, object> tipoindicador)
+    {
+        tipoindicadorParaEliminar = tipoindicador;
+        mostrarModalEliminar = true;
+    }
+
+    // Método que se ejecuta al confirmar la eliminación individual
+    private async Task ConfirmarEliminartipoindicador()
+    {
+        if (tipoindicadorParaEliminar != null)
+        {
+            string id = ObtenerValor(tipoindicadorParaEliminar, "id");
+            bool resultado = await servicioEntidad.EliminarAsync("proyecto", "tipoindicador", "id", id);
+            
+            if (resultado)
+            {
+                await Cargartipoindicadores();
+            }
+            else
+            {
+                errorMensaje = "Error al eliminar el tipoindicador";
+            }
+            
+            CerrarModalEliminar();
+        }
+    }
+
+    // Método auxiliar para obtener el valor de un diccionario a partir de una clave
+    private string ObtenerValor(Dictionary<string, object> diccionario, string clave)
+    {
+        return diccionario.TryGetValue(clave, out var valor) ? valor?.ToString() ?? "" : "";
+    }
+
+    // Propiedad para manejar la selección de todos los registros a la vez
+    private bool seleccionarTodos
+    {
+        get => _seleccionarTodos;
+        set
+        {
+            _seleccionarTodos = value;
+            // Actualiza todos los checks individuales según el valor global
+            foreach (var clave in tipoindicadorSeleccionado.Keys.ToList())
+            {
+                tipoindicadorSeleccionado[clave] = _seleccionarTodos;
+            }
+        }
+    }
+    private bool _seleccionarTodos = false;
+
+    // Método para editar el primer tipoindicador que esté seleccionado
+    private void EditartipoindicadorSeleccionado()
+    {
+        var seleccionado = tipoindicadorSeleccionado.FirstOrDefault(x => x.Value).Key;
+        if (seleccionado != null)
+        {
+            Editartipoindicador(seleccionado);
+        }
+        else
+        {
+            errorMensaje = "Debe seleccionar un tipoindicador para editar";
+        }
+    }
+
+    // Método para eliminar tipoindicadors uno a uno (utilizado en eliminación múltiple)
+    private async Task EliminarSeleccionados()
+    {
+        var seleccionados = tipoindicadorSeleccionado.Where(x => x.Value).Select(x => x.Key).ToList();
+        foreach (var tipoindicador in seleccionados)
+        {
+            string id = ObtenerValor(tipoindicador, "id");
+            await servicioEntidad.EliminarAsync("proyecto", "tipoindicador", "id", id);
+        }
+        await Cargartipoindicadores();
+        seleccionarTodos = false;
+    }
+
+    // Método para confirmar y ejecutar la eliminación de tipoindicadors seleccionados
+    private async Task ConfirmarEliminarSeleccionados()
+    {
+        var seleccionados = tipoindicadorSeleccionado
+            .Where(x => x.Value)
+            .Select(x => x.Key)
+            .ToList();
+
+        foreach (var tipoindicador in seleccionados)
+        {
+            string id = ObtenerValor(tipoindicador, "id");
+            await servicioEntidad.EliminarAsync("proyecto", "tipoindicador", "id", id);
+        }
+
+        await Cargartipoindicadores();
+        seleccionarTodos = false;
+        mostrarModalEliminarMultiples = false;
+    }
+
+    // Muestra el modal de eliminación múltiple solo si hay al menos un registro seleccionado
+    private void MostrarModalEliminarMultiples()
+    {
+        if (tipoindicadorSeleccionado.Any(x => x.Value))
+        {
+            mostrarModalEliminarMultiples = true;
+        }
+        else
+        {
+            errorMensaje = "Debes seleccionar al menos un tipoindicador para eliminar.";
+        }
+    }
+
+    // Métodos para cerrar los distintos modales
+    private void CerrarModalEditar() => mostrarModalEditar = false;
+    private void CerrarModalEliminar() => mostrarModalEliminar = false;
+    private void CerrarModalEliminarMultiples() => mostrarModalEliminarMultiples = false;
+}

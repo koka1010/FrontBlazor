@@ -1,0 +1,414 @@
+@page "/variable-indicador"
+@using System.Collections.Generic  
+@using System.Text.Json
+@using Services
+@inject ServicioEntidad servicioEntidad
+@inject NavigationManager navegacionManager
+@inherits ValidacionAcceso
+<PageTitle>Lista de variables por indicadores</PageTitle>
+ 
+<h1 class="mb-4 text-primary">Variables por Indicadores</h1>
+ 
+<button class="btn btn-primary mb-3" @onclick="ToggleFormulario">
+    @((mostrarFormulario ? "Cerrar formulario" : "Crear Variable Indicador"))
+</button>
+
+@if (mostrarFormulario)
+{
+    <div class="card p-4 mb-4 shadow">
+        <div class="row">
+ 
+            <div class="col-md-6 mb-3">
+                <label>Variable</label>
+                <select class="form-control" @bind="nuevoVariable">
+                    <option value="">Seleccione</option>
+                    @foreach (var tipo in listaVariable)
+                    {
+                        <option value="@tipo["id"]?.ToString()">@tipo["nombre"]?.ToString()</option>
+                    }
+                </select>
+            </div>
+ 
+             <div class="col-md-6 mb-3">
+                <label>Indicador</label>
+                <select class="form-control" @bind="nuevoIndicador">
+                    <option value="">Seleccione</option>
+                    @foreach (var tipo in listaIndicador)
+                    {
+                        <option value="@tipo["id"]?.ToString()">@tipo["nombre"]?.ToString()</option>
+                    }
+                </select>
+            </div>
+ 
+            <div class="col-md-6 mb-3">
+                <label>Dato</label>
+                <input type="number" class="form-control" @bind="nuevoDato" placeholder="Dato" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Usuario</label>
+                <select class="form-control" @bind="nuevoUsuario">
+                    <option value="">Seleccione</option>
+                    @foreach (var tipo in listaUsuario)
+                    {
+                        <option value="@tipo["email"]?.ToString()">@tipo["email"]?.ToString()</option>
+                    }
+                </select>
+            </div>    
+            <div class="col-md-6 mb-3">
+                <label>Fecha dato</label>
+                <input type="date" class="form-control" @bind="nuevoFechaCalculo" placeholder="FechaCalculo" />
+            </div>
+       
+ 
+        <button class="btn btn-success w-100 mt-3" @onclick="CrearVariableIndicador">Crear Variable por indicador</button>
+    </div>
+    </div>
+}
+ 
+ 
+ 
+
+@if (cargando)
+{
+    <p>Cargando...</p>
+}
+else if (variableIndicadores == null || variableIndicadores.Count == 0)
+{
+    <p>No hay resultados de variables de indicadores disponibles.</p>
+}
+else
+{
+    <div class="table-responsive">
+    <table class="table table-striped table-bordered align-middle text-center">
+        <thead>
+            <tr>
+            <th>id</th>
+            <th>Variable</th>
+            <th>Indicador</th>
+            <th>Dato</th>
+            <th>Usuario</th>
+            <th>Fecha</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var variable in variableIndicadores)
+            {
+                var id = ObtenerValor(variable, "id");
+                var idvariable = ObtenerValor(variable, "fkidvariable");
+                var indicador = ObtenerValor(variable, "fkidindicador");
+                var dato = ObtenerValor(variable, "dato");
+                var usuario = ObtenerValor(variable, "fkemailusuario");
+                var fecha = ObtenerValor(variable, "fechadato");            
+                <tr>
+                    <!-- Muestra el ID del elemento -->
+                    <td>@id</td>
+                    <td>
+                        @if (editandoId == id) // estamos editando este elemento específico
+                        {
+                            <!-- Muestra un input para editar el nombre -->
+                            <input @bind="variableEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            <!-- Muestra el nombre tal cual si no se está editando -->
+                            @idvariable
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) // estamos editando este elemento específico
+                        {
+                            <!-- Muestra un input para editar el nombre -->
+                            <input @bind="indicadorEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            <!-- Muestra el nombre tal cual si no se está editando -->
+                            @indicador
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) // estamos editando este elemento específico
+                        {
+                            <!-- Muestra un input para editar el nombre -->
+                            <input @bind="datoEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            <!-- Muestra el nombre tal cual si no se está editando -->
+                            @dato
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) // estamos editando este elemento específico
+                        {
+                            <!-- Muestra un input para editar el nombre -->
+                            <input @bind="usuarioEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            <!-- Muestra el nombre tal cual si no se está editando -->
+                            @usuario
+                        }
+                    </td>
+                    <td>
+                        @if (editandoId == id) // estamos editando este elemento específico
+                        {
+                            <!-- Muestra un input para editar el nombre -->
+                            <input @bind="fechaEditado" class="form-control" />
+                        }
+                        else
+                        {
+                            <!-- Muestra el nombre tal cual si no se está editando -->
+                            @fecha
+                        }
+                    </td>
+                    <td>
+                        <div class="d-flex justify-content-center gap-2 flex-wrap">
+                            @if (editandoId == id)
+                            {
+                                <button class="btn btn-sm btn-success" @onclick="() => GuardarEdicion(id)">
+                                    <i class="bi bi-check2"></i> Guardar
+                                </button>
+                                <button class="btn btn-sm btn-secondary" @onclick="CancelarEdicion">
+                                    <i class="bi bi-x-lg"></i> Cancelar
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-primary" @onclick="() => EmpezarEdicion(id, int.Parse(idvariable), int.Parse(indicador), double.Parse(dato), usuario, DateTime.Parse(fecha))">
+                                    <i class="bi bi-pencil-square"></i> Editar
+                                </button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => EliminarIndicador(id)">
+                                    <i class="bi bi-trash"></i> Eliminar
+                                </button>
+                            }
+                        </div>
+                    </td>
+ 
+                </tr>
+                }
+        </tbody>
+    </table>
+    </div>
+ 
+ 
+
+@if (errorMensaje != null)
+{
+    <div class="alert alert-danger">
+        Error: @errorMensaje
+    </div>
+}
+ 
+@code {
+    private List<Dictionary<string, object>> variableIndicadores = new List<Dictionary<string, object>>();
+    private List<Dictionary<string, object>> listaIndicador = new();
+    private List<Dictionary<string, object>> listaVariable = new();
+    private List<Dictionary<string, object>> listaUsuario = new();
+    private bool cargando = true;
+
+    private string? errorMensaje = null;
+
+    private int? nuevoVariable= 0;
+    private string nuevoIndicador = string.Empty;
+    private double? nuevoDato = 0;
+    private string nuevoUsuario = string.Empty;
+    private DateTime nuevoFechaCalculo = DateTime.Now;
+   
+   
+
+    private string? editandoId = null;
+    private int variableEditado = 0;
+    private int indicadorEditado = 0;
+    private double datoEditado = 0;
+    private string usuarioEditado = string.Empty;
+    private DateTime fechaEditado = DateTime.Now;
+   
+    private bool mostrarFormulario = false;
+    private void ToggleFormulario()
+    {
+        mostrarFormulario = !mostrarFormulario;
+    }  
+ 
+    private const string PROYECTO = "csharpapigenerica";
+    private const string TABLA = "variablesporindicador";
+ 
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarVariablesIndicador();
+        await CargarListasSelect();
+    }
+ 
+    // Obtener
+    private async Task CargarVariablesIndicador()
+    {
+        cargando = true;
+        errorMensaje = null;
+       
+        try
+        {
+            var resultado = await servicioEntidad.ObtenerTodosAsync(PROYECTO, TABLA);
+           
+            if (resultado != null)
+            {
+                variableIndicadores = resultado;
+            }
+            else
+            {
+                variableIndicadores = new List<Dictionary<string, object>>();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al cargar las variables del indicador: {ex.Message}";
+            variableIndicadores = new List<Dictionary<string, object>>();
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+ 
+    // Cargar desde la API
+    private async Task CargarListasSelect()
+    {
+        try
+        {
+            listaIndicador = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "indicador") ?? new List<Dictionary<string, object>>();
+            listaVariable = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "variable") ?? new List<Dictionary<string, object>>();
+            listaUsuario = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "usuario") ?? new List<Dictionary<string, object>>();
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al cargar listas de selección: {ex.Message}";
+        }
+    }
+ 
+ 
+    // Obtener especifico
+    private string ObtenerValor(Dictionary<string, object> diccionario, string clave)
+    {
+        if (diccionario == null)
+            return string.Empty;
+           
+        if (diccionario.TryGetValue(clave, out var valor))
+        {
+            return valor?.ToString() ?? string.Empty;
+        }
+       
+        return string.Empty;
+    }
+ 
+    // Crear
+    private async Task CrearVariableIndicador()
+    {
+        if (nuevoVariable.HasValue && nuevoFechaCalculo != default && !string.IsNullOrWhiteSpace(nuevoIndicador))
+        {
+            var nuevoVariableIndicador = new Dictionary<string, object>
+        {
+            { "fkidvariable", nuevoVariable },
+            { "fkidindicador", nuevoIndicador },
+            { "dato", nuevoDato},
+            { "fkemailusuario", nuevoUsuario},
+            { "fechadato", nuevoDato},
+        };
+ 
+        var exito = await servicioEntidad.CrearAsync(PROYECTO, TABLA, nuevoVariableIndicador);
+        if (exito)
+        {
+            await CargarVariablesIndicador(); // Refrescar tabla
+            nuevoVariable = null;
+        }
+        else
+        {
+            errorMensaje = "No se pudo crear la variable indicador.";
+        }
+    }
+}
+ 
+    // Iniciar edición
+    private void EmpezarEdicion(string id, int variableActual, int indicadorActual, double datoActual, string usuarioActual, DateTime fechaActual)
+    {
+        editandoId = id;
+        variableEditado = variableActual;
+        indicadorEditado = indicadorActual;
+        datoEditado = datoActual;
+        usuarioEditado = usuarioActual;
+        fechaEditado = fechaActual;
+ 
+    }
+ 
+    // Cancelar edición
+    private void CancelarEdicion()
+    {
+    editandoId = null;
+    variableEditado = 0;
+    indicadorEditado = 0;
+    datoEditado = 0;
+    usuarioEditado = string.Empty;
+    fechaEditado = DateTime.Now;
+   
+    }
+ 
+    // Actualizar
+    private async Task GuardarEdicion(string id)
+    {
+        try
+        {
+            var datos = new Dictionary<string, object?>
+        {
+            { "fkidvariable", variableEditado },
+            { "fkidindicador", indicadorEditado},
+            { "dato", datoEditado},
+            { "fkemailusuario", usuarioEditado},
+            { "fechadato", fechaEditado},
+        };
+ 
+        // Servicio actualizar
+        var exito = await servicioEntidad.ActualizarAsync(
+            PROYECTO,
+            TABLA,
+            "id",
+            id,
+            datos
+        );
+ 
+        if (exito)
+        {
+            await CargarVariablesIndicador(); // Refrescar tabla
+            CancelarEdicion();
+        }
+        else
+        {
+            errorMensaje = "No se pudo actualizar la variable del indicador.";
+        }
+    }
+    catch (Exception ex)
+    {
+        errorMensaje = $"Error al actualizar: {ex.Message}";
+    }
+}
+ 
+    // Eliminar
+    private async Task EliminarIndicador(string id)
+    {
+        var confirmado = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Estás seguro de eliminar la variable del indicador con ID {id}?");
+        if (confirmado)
+        {
+            var exito = await servicioEntidad.EliminarAsync(PROYECTO, TABLA, "id", id);
+            if (exito)
+            {
+                await CargarVariablesIndicador(); // Refrescar tabla
+            }
+            else
+            {
+                errorMensaje = "No se pudo eliminar el resultado del indicador.";
+            }
+        }
+    }
+ 
+    // Inyectar JavaScript runtime para mostrar confirmaciones
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+ 
+    }
+}

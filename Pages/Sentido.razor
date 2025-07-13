@@ -1,0 +1,470 @@
+@page "/sentido"
+@using System.Collections.Generic
+@using System.Threading.Tasks
+@using Services
+@inject ServicioEntidad servicioEntidad         // Inyección del servicio para operaciones CRUD
+@inject NavigationManager navegacionManager       // Inyección del NavigationManager (no se usa en este fragmento)
+<div class="container-xl">
+    <div class="table-responsive">
+        <div class="table-wrapper">
+            <div class="table-title">
+                <div class="row">
+                    <div class="col-sm-6">
+                        <h2>Administrar <b>Sentidos</b></h2>
+                    </div>
+                    <div class="col-sm-6">
+                        <!-- Botón para mostrar modal de eliminación múltiple -->
+                        <button class="btn btn-danger btn-sm" @onclick="MostrarModalEliminarMultiples">
+                            <i class="material-icons">&#xE15C;</i> <span>Eliminar</span>
+                        </button>
+
+                        <!-- Botón para mostrar modal de agregar sentido -->
+                        <button class="btn btn-success btn-sm" @onclick="AbrirModal">
+                            <i class="material-icons">&#xE147;</i> <span>Agregar</span>
+                        </button>
+
+                        <!-- Botón para editar el sentido seleccionado -->
+                        <button class="btn btn-info btn-sm" @onclick="() => EditarSentidoSeleccionado()">
+                            <i class="material-icons">&#xE254;</i> <span>Editar Seleccionado</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Muestra un mensaje de carga mientras se obtienen datos -->
+            @if (cargando)
+            {
+                <p><em>Cargando...</em></p>
+            }
+            // Verifica si la lista de sentidos es nula o vacía
+            else if (sentidos == null || sentidos.Count == 0)
+            {
+                <p>No hay sentidos disponibles.</p>
+            }
+            else
+            {
+                <!-- Tabla con los sentidos obtenidos -->
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>
+                                <!-- Check global para seleccionar todos los sentidos -->
+                                <span class="custom-checkbox">
+                                    <input type="checkbox" @bind="@seleccionarTodos">
+                                    <label></label>
+                                </span>
+                            </th>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var sentido in sentidos)
+                        {
+                            <tr>
+                                <td>
+                                    <!-- Check individual para cada sentido -->
+                                    <span class="custom-checkbox">
+                                        <input type="checkbox" @bind="@sentidoSeleccionado[sentido]">
+                                        <label></label>
+                                    </span>
+                                </td>
+                                <!-- Muestra el ID y nombre del sentido usando el método ObtenerValor -->
+                                <td>@ObtenerValor(sentido, "id")</td>
+                                <td>@ObtenerValor(sentido, "nombre")</td>
+                                <td>
+                                    <!-- Enlace para editar un sentido en particular -->
+                                    <a href="#" class="edit" @onclick="() => EditarSentido(sentido)" @onclick:preventDefault>
+                                        <i class="material-icons" title="Editar">&#xE254;</i>
+                                    </a>
+                                    <!-- Enlace para eliminar un sentido en particular -->
+                                    <a href="#" class="delete" @onclick="() => EliminarSentido(sentido)" @onclick:preventDefault>
+                                        <i class="material-icons" title="Eliminar">&#xE872;</i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal para agregar un sentido -->
+@if (mostrarModal)
+{
+    @inherits ValidacionAcceso
+    <div class="modal fade show d-block" style="background: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <!-- Formulario que al enviarse ejecuta GuardarSentido -->
+                <form @onsubmit="GuardarSentido">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Agregar Sentido</h4>
+                        <!-- Botón para cerrar el modal -->
+                        <button type="button" class="close" @onclick="CerrarModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Campo para ingresar el nombre del sentido -->
+                        <div class="form-group">
+                            <label>Nombre</label>
+                            <input type="text" class="form-control" @bind="nombreSentido" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <!-- Botones para cancelar o guardar -->
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal para editar un sentido -->
+@if (mostrarModalEditar)
+{
+    
+    <div class="modal fade show d-block" style="background: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <!-- Formulario que al enviarse ejecuta ActualizarSentido -->
+                <form @onsubmit="ActualizarSentido">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Editar Sentido</h4>
+                        <!-- Botón para cerrar el modal de edición -->
+                        <button type="button" class="close" @onclick="CerrarModalEditar">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Se muestra el ID del sentido, pero está deshabilitado para no editarlo -->
+                        <div class="form-group">
+                            <label>ID</label>
+                            <input type="text" class="form-control" @bind="idSentidoEditar" disabled>
+                        </div>
+                        <!-- Campo para editar el nombre del sentido -->
+                        <div class="form-group">
+                            <label>Nombre</label>
+                            <input type="text" class="form-control" @bind="nombreSentidoEditar" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <!-- Botones para cancelar o actualizar -->
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModalEditar">Cancelar</button>
+                        <button type="submit" class="btn btn-info">Actualizar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal para confirmar eliminación individual -->
+@if (mostrarModalEliminar)
+{
+    <div class="modal fade show d-block" style="background: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <!-- Formulario que al enviarse ejecuta ConfirmarEliminarSentido -->
+                <form @onsubmit="ConfirmarEliminarSentido">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Eliminar Sentido</h4>
+                        <button type="button" class="close" @onclick="CerrarModalEliminar">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Mensaje de confirmación para eliminación -->
+                        <p>¿Está seguro de que desea eliminar este sentido?</p>
+                        <p class="text-warning"><small>Esta acción no se puede deshacer.</small></p>
+                    </div>
+                    <div class="modal-footer">
+                        <!-- Botones para cancelar o confirmar eliminación -->
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModalEliminar">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal para confirmar eliminación múltiple -->
+@if (mostrarModalEliminarMultiples)
+{
+    <div class="modal fade show d-block" style="background: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <!-- Formulario que al enviarse ejecuta ConfirmarEliminarSeleccionados -->
+                <form @onsubmit="ConfirmarEliminarSeleccionados">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Eliminar Sentidos Seleccionados</h4>
+                        <button type="button" class="close" @onclick="CerrarModalEliminarMultiples">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Mensaje de confirmación para la eliminación múltiple -->
+                        <p>¿Está seguro de que desea eliminar los sentidos seleccionados?</p>
+                        <p class="text-warning"><small>Esta acción no se puede deshacer.</small></p>
+                    </div>
+                    <div class="modal-footer">
+                        <!-- Botones para cancelar o confirmar la eliminación -->
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModalEliminarMultiples">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // Lista de sentidos recuperados del servicio
+    private List<Dictionary<string, object>> sentidos = new List<Dictionary<string, object>>();
+    // Diccionario que mantiene la selección de cada sentido (checkbox)
+    private Dictionary<Dictionary<string, object>, bool> sentidoSeleccionado = new();
+    // Bandera que indica si se está cargando la información
+    private bool cargando = true;
+    // Variable para almacenar mensajes de error
+    private string? errorMensaje = null;
+
+    // Variables para controlar la visualización de los modales
+    private bool mostrarModal = false;
+    private bool mostrarModalEditar = false;
+    private bool mostrarModalEliminar = false;
+    private bool mostrarModalEliminarMultiples = false;
+
+    // Variables para almacenar datos en formularios (crear y editar)
+    private string nombreSentido = "";
+    private string idSentidoEditar = "";
+    private string nombreSentidoEditar = "";
+    private Dictionary<string, object>? sentidoParaEditar = null;
+    private Dictionary<string, object>? sentidoParaEliminar = null;
+
+    // Se ejecuta al inicializar la página: se carga la lista de sentidos
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarSentidos();
+    }
+
+    // Método para cargar todos los sentidos usando el servicio inyectado
+    private async Task CargarSentidos()
+    {
+        cargando = true;
+        try
+        {
+            var resultado = await servicioEntidad.ObtenerTodosAsync("proyecto", "sentido");
+            sentidos = resultado ?? new List<Dictionary<string, object>>();
+            // Inicializa el diccionario de selección para cada sentido
+            sentidoSeleccionado = sentidos.ToDictionary(p => p, p => false);
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al cargar sentidos: {ex.Message}";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    // Abre el modal para agregar un nuevo sentido y reinicia el campo de nombre
+    private void AbrirModal()
+    {
+        mostrarModal = true;
+        nombreSentido = "";
+    }
+
+    // Cierra el modal de creación
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+    }
+
+    // Método que se ejecuta al enviar el formulario para guardar un nuevo sentido
+    private async Task GuardarSentido()
+    {
+        // Validación del campo nombre
+        if (string.IsNullOrEmpty(nombreSentido))
+        {
+            errorMensaje = "El nombre es obligatorio";
+            return;
+        }
+
+        // Crea un diccionario con los datos del nuevo sentido
+        var nuevoSentido = new Dictionary<string, object>
+        {
+            { "nombre", nombreSentido }
+        };
+
+        // Llama al servicio para crear el sentido
+        bool resultado = await servicioEntidad.CrearAsync("proyecto", "sentido", nuevoSentido);
+
+        if (resultado)
+        {
+            await CargarSentidos();
+            CerrarModal();
+        }
+        else
+        {
+            errorMensaje = "Error al guardar el sentido";
+        }
+    }
+
+    // Método para abrir el modal de edición con los datos del sentido seleccionado
+    private void EditarSentido(Dictionary<string, object> sentido)
+    {
+        sentidoParaEditar = sentido;
+        idSentidoEditar = ObtenerValor(sentido, "id");
+        nombreSentidoEditar = ObtenerValor(sentido, "nombre");
+        mostrarModalEditar = true;
+    }
+
+    // Método que se ejecuta al enviar el formulario de edición; actualiza el sentido
+    private async Task ActualizarSentido()
+    {
+        // Validación: se requiere que exista un sentido seleccionado y un nombre no vacío
+        if (sentidoParaEditar == null || string.IsNullOrEmpty(nombreSentidoEditar))
+        {
+            errorMensaje = "El nombre es obligatorio";
+            return;
+        }
+
+        // Diccionario con los datos actualizados
+        var datosActualizados = new Dictionary<string, object>
+        {
+            { "nombre", nombreSentidoEditar }
+        };
+
+        // Llama al servicio para actualizar el sentido especificado
+        bool resultado = await servicioEntidad.ActualizarAsync(
+            "proyecto", 
+            "sentido", 
+            "id", 
+            idSentidoEditar, 
+            datosActualizados);
+
+        if (resultado)
+        {
+            await CargarSentidos();
+            CerrarModalEditar();
+        }
+        else
+        {
+            errorMensaje = "Error al actualizar el sentido";
+        }
+    }
+
+    // Método para abrir el modal de confirmación de eliminación individual
+    private void EliminarSentido(Dictionary<string, object> sentido)
+    {
+        sentidoParaEliminar = sentido;
+        mostrarModalEliminar = true;
+    }
+
+    // Método que se ejecuta al confirmar la eliminación individual
+    private async Task ConfirmarEliminarSentido()
+    {
+        if (sentidoParaEliminar != null)
+        {
+            string id = ObtenerValor(sentidoParaEliminar, "id");
+            bool resultado = await servicioEntidad.EliminarAsync("proyecto", "sentido", "id", id);
+            
+            if (resultado)
+            {
+                await CargarSentidos();
+            }
+            else
+            {
+                errorMensaje = "Error al eliminar el sentido";
+            }
+            
+            CerrarModalEliminar();
+        }
+    }
+
+    // Método auxiliar para obtener el valor de un diccionario a partir de una clave
+    private string ObtenerValor(Dictionary<string, object> diccionario, string clave)
+    {
+        return diccionario.TryGetValue(clave, out var valor) ? valor?.ToString() ?? "" : "";
+    }
+
+    // Propiedad para manejar la selección de todos los registros a la vez
+    private bool seleccionarTodos
+    {
+        get => _seleccionarTodos;
+        set
+        {
+            _seleccionarTodos = value;
+            // Actualiza todos los checks individuales según el valor global
+            foreach (var clave in sentidoSeleccionado.Keys.ToList())
+            {
+                sentidoSeleccionado[clave] = _seleccionarTodos;
+            }
+        }
+    }
+    private bool _seleccionarTodos = false;
+
+    // Método para editar el primer sentido que esté seleccionado
+    private void EditarSentidoSeleccionado()
+    {
+        var seleccionado = sentidoSeleccionado.FirstOrDefault(x => x.Value).Key;
+        if (seleccionado != null)
+        {
+            EditarSentido(seleccionado);
+        }
+        else
+        {
+            errorMensaje = "Debe seleccionar un sentido para editar";
+        }
+    }
+
+    // Método para eliminar sentidos uno a uno (utilizado en eliminación múltiple)
+    private async Task EliminarSeleccionados()
+    {
+        var seleccionados = sentidoSeleccionado.Where(x => x.Value).Select(x => x.Key).ToList();
+        foreach (var sentido in seleccionados)
+        {
+            string id = ObtenerValor(sentido, "id");
+            await servicioEntidad.EliminarAsync("proyecto", "sentido", "id", id);
+        }
+        await CargarSentidos();
+        seleccionarTodos = false;
+    }
+
+    // Método para confirmar y ejecutar la eliminación de sentidos seleccionados
+    private async Task ConfirmarEliminarSeleccionados()
+    {
+        var seleccionados = sentidoSeleccionado
+            .Where(x => x.Value)
+            .Select(x => x.Key)
+            .ToList();
+
+        foreach (var sentido in seleccionados)
+        {
+            string id = ObtenerValor(sentido, "id");
+            await servicioEntidad.EliminarAsync("proyecto", "sentido", "id", id);
+        }
+
+        await CargarSentidos();
+        seleccionarTodos = false;
+        mostrarModalEliminarMultiples = false;
+    }
+
+    // Muestra el modal de eliminación múltiple solo si hay al menos un registro seleccionado
+    private void MostrarModalEliminarMultiples()
+    {
+        if (sentidoSeleccionado.Any(x => x.Value))
+        {
+            mostrarModalEliminarMultiples = true;
+        }
+        else
+        {
+            errorMensaje = "Debes seleccionar al menos un sentido para eliminar.";
+        }
+    }
+
+    // Métodos para cerrar los distintos modales
+    private void CerrarModalEditar() => mostrarModalEditar = false;
+    private void CerrarModalEliminar() => mostrarModalEliminar = false;
+    private void CerrarModalEliminarMultiples() => mostrarModalEliminarMultiples = false;
+}

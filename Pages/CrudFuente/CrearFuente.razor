@@ -1,0 +1,89 @@
+@page "/Fuente/crear"
+@using System.Collections.Generic  
+@using System.Text.Json  
+@using FrontBlazor.Services  
+@inject ServicioEntidad servicioEntidad  
+@inject NavigationManager navegacionManager
+@inherits ValidacionAcceso  
+
+<PageTitle>Crear Fuente</PageTitle>
+
+<h3>Agregar un nuevo Fuente</h3>
+
+@if (errorMensaje != null)
+{
+    <div class="alert alert-danger">
+        Error: @errorMensaje
+    </div>
+}
+
+@if (modelo != null)
+{
+    <EditForm Model="modelo" OnValidSubmit="Guardar">
+        <DataAnnotationsValidator />
+
+        <div class="mb-3">
+            <label class="form-label">Nombre</label>
+            <InputText @bind-Value="modelo.Nombre" class="form-control" />
+            <ValidationMessage For="@(() => modelo.Nombre)" />
+        </div>
+
+        <button type="submit" class="btn btn-success">Guardar</button>
+        <button type="button" class="btn btn-secondary" @onclick="Cancelar">Cancelar</button>
+    </EditForm>
+}
+else
+{
+    <p>Cargando formulario...</p>
+}
+
+@code {
+    private FuenteModel? modelo;
+    private string? errorMensaje = null;
+
+    protected override void OnInitialized()
+    {
+        modelo = new FuenteModel();  // Inicializar el modelo correctamente
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            if (modelo == null || string.IsNullOrWhiteSpace(modelo.Nombre))
+            {
+                errorMensaje = "El nombre no puede estar vacío.";
+                return;
+            }
+
+            var datos = new Dictionary<string, object>
+            {
+                { "nombre", modelo.Nombre }
+            };
+
+            bool creado = await servicioEntidad.CrearAsync("proyecto", "Fuente", datos);
+            if (creado)
+            {
+                navegacionManager.NavigateTo("/Fuente");
+            }
+            else
+            {
+                errorMensaje = "No se pudo crear el Fuente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error: {ex.Message}";
+        }
+    }
+
+    private void Cancelar()
+    {
+        navegacionManager.NavigateTo("/Fuente");
+    }
+
+    private class FuenteModel
+    {
+        public string Nombre { get; set; } = string.Empty;
+    }
+}

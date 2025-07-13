@@ -1,0 +1,469 @@
+@page "/UnidadMedicion"
+@using System.Collections.Generic
+@using System.Threading.Tasks
+@using Services
+@inject ServicioEntidad servicioEntidad         // Inyección del servicio para operaciones CRUD
+@inject NavigationManager navegacionManager       // Inyección del NavigationManager (no se usa en este fragmento)
+@inherits ValidacionAcceso
+<div class="container-xl">
+    <div class="table-responsive">
+        <div class="table-wrapper">
+            <div class="table-title">
+                <div class="row">
+                    <div class="col-sm-6">
+                        <h2>Administrar <b>Unidad Medicion</b></h2>
+                    </div>
+                    <div class="col-sm-6">
+                        <!-- Botón para mostrar modal de eliminación múltiple -->
+                        <button class="btn btn-danger btn-sm" @onclick="MostrarModalEliminarMultiples">
+                            <i class="material-icons">&#xE15C;</i> <span>Eliminar</span>
+                        </button>
+
+                        <!-- Botón para mostrar modal de agregar UnidadMedicion -->
+                        <button class="btn btn-success btn-sm" @onclick="AbrirModal">
+                            <i class="material-icons">&#xE147;</i> <span>Agregar</span>
+                        </button>
+
+                        <!-- Botón para editar el UnidadMedicion seleccionado -->
+                        <button class="btn btn-info btn-sm" @onclick="() => EditarUnidadMedicionSeleccionado()">
+                            <i class="material-icons">&#xE254;</i> <span>Editar Seleccionado</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Muestra un mensaje de carga mientras se obtienen datos -->
+            @if (cargando)
+            {
+                <p><em>Cargando...</em></p>
+            }
+            // Verifica si la lista de UnidadMedicion es nula o vacía
+            else if (UnidadMediciones == null || UnidadMediciones.Count == 0)
+            {
+                <p>No hay UnidadMedicion disponibles.</p>
+            }
+            else
+            {
+                <!-- Tabla con los UnidadMedicions obtenidos -->
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>
+                                <!-- Check global para seleccionar todos los UnidadMedicions -->
+                                <span class="custom-checkbox">
+                                    <input type="checkbox" @bind="@seleccionarTodos">
+                                    <label></label>
+                                </span>
+                            </th>
+                            <th>ID</th>
+                            <th>Descripcion</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var UnidadMedicion in UnidadMediciones)
+                        {
+                            <tr>
+                                <td>
+                                    <!-- Check individual para cada UnidadMedicion -->
+                                    <span class="custom-checkbox">
+                                        <input type="checkbox" @bind="@UnidadMedicionSeleccionado[UnidadMedicion]">
+                                        <label></label>
+                                    </span>
+                                </td>
+                                <!-- Muestra el ID y descripcion del UnidadMedicion usando el método ObtenerValor -->
+                                <td>@ObtenerValor(UnidadMedicion, "id")</td>
+                                <td>@ObtenerValor(UnidadMedicion, "descripcion")</td>
+                                <td>
+                                    <!-- Enlace para editar un UnidadMedicion en particular -->
+                                    <a href="#" class="edit" @onclick="() => EditarUnidadMedicion(UnidadMedicion)" @onclick:preventDefault>
+                                        <i class="material-icons" title="Editar">&#xE254;</i>
+                                    </a>
+                                    <!-- Enlace para eliminar un UnidadMedicion en particular -->
+                                    <a href="#" class="delete" @onclick="() => EliminarUnidadMedicion(UnidadMedicion)" @onclick:preventDefault>
+                                        <i class="material-icons" title="Eliminar">&#xE872;</i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal para agregar un UnidadMedicion -->
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <!-- Formulario que al enviarse ejecuta GuardarUnidadMedicion -->
+                <form @onsubmit="GuardarUnidadMedicion">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Agregar UnidadMedicion</h4>
+                        <!-- Botón para cerrar el modal -->
+                        <button type="button" class="close" @onclick="CerrarModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Campo para ingresar el descripcion del UnidadMedicion -->
+                        <div class="form-group">
+                            <label>descripcion</label>
+                            <input type="text" class="form-control" @bind="descripcionUnidadMedicion" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <!-- Botones para cancelar o guardar -->
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal para editar un UnidadMedicion -->
+@if (mostrarModalEditar)
+{
+    <div class="modal fade show d-block" style="background: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <!-- Formulario que al enviarse ejecuta ActualizarUnidadMedicion -->
+                <form @onsubmit="ActualizarUnidadMedicion">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Editar UnidadMedicion</h4>
+                        <!-- Botón para cerrar el modal de edición -->
+                        <button type="button" class="close" @onclick="CerrarModalEditar">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Se muestra el ID del UnidadMedicion, pero está deshabilitado para no editarlo -->
+                        <div class="form-group">
+                            <label>ID</label>
+                            <input type="text" class="form-control" @bind="idUnidadMedicionEditar" disabled>
+                        </div>
+                        <!-- Campo para editar el descripcion del UnidadMedicion -->
+                        <div class="form-group">
+                            <label>descripcion</label>
+                            <input type="text" class="form-control" @bind="descripcionUnidadMedicionEditar" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <!-- Botones para cancelar o actualizar -->
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModalEditar">Cancelar</button>
+                        <button type="submit" class="btn btn-info">Actualizar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal para confirmar eliminación individual -->
+@if (mostrarModalEliminar)
+{
+    <div class="modal fade show d-block" style="background: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <!-- Formulario que al enviarse ejecuta ConfirmarEliminarUnidadMedicion -->
+                <form @onsubmit="ConfirmarEliminarUnidadMedicion">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Eliminar UnidadMedicion</h4>
+                        <button type="button" class="close" @onclick="CerrarModalEliminar">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Mensaje de confirmación para eliminación -->
+                        <p>¿Está seguro de que desea eliminar este UnidadMedicion?</p>
+                        <p class="text-warning"><small>Esta acción no se puede deshacer.</small></p>
+                    </div>
+                    <div class="modal-footer">
+                        <!-- Botones para cancelar o confirmar eliminación -->
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModalEliminar">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal para confirmar eliminación múltiple -->
+@if (mostrarModalEliminarMultiples)
+{
+    <div class="modal fade show d-block" style="background: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <!-- Formulario que al enviarse ejecuta ConfirmarEliminarSeleccionados -->
+                <form @onsubmit="ConfirmarEliminarSeleccionados">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Eliminar UnidadMedicion Seleccionados</h4>
+                        <button type="button" class="close" @onclick="CerrarModalEliminarMultiples">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Mensaje de confirmación para la eliminación múltiple -->
+                        <p>¿Está seguro de que desea eliminar los UnidadMedicion seleccionados?</p>
+                        <p class="text-warning"><small>Esta acción no se puede deshacer.</small></p>
+                    </div>
+                    <div class="modal-footer">
+                        <!-- Botones para cancelar o confirmar la eliminación -->
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModalEliminarMultiples">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // Lista de UnidadMedicions recuperados del servicio
+    private List<Dictionary<string, object>> UnidadMediciones = new List<Dictionary<string, object>>();
+    // Diccionario que mantiene la selección de cada UnidadMedicion (checkbox)
+    private Dictionary<Dictionary<string, object>, bool> UnidadMedicionSeleccionado = new();
+    // Bandera que indica si se está cargando la información
+    private bool cargando = true;
+    // Variable para almacenar mensajes de error
+    private string? errorMensaje = null;
+
+    // Variables para controlar la visualización de los modales
+    private bool mostrarModal = false;
+    private bool mostrarModalEditar = false;
+    private bool mostrarModalEliminar = false;
+    private bool mostrarModalEliminarMultiples = false;
+
+    // Variables para almacenar datos en formularios (crear y editar)
+    private string descripcionUnidadMedicion = "";
+    private string idUnidadMedicionEditar = "";
+    private string descripcionUnidadMedicionEditar = "";
+    private Dictionary<string, object>? UnidadMedicionParaEditar = null;
+    private Dictionary<string, object>? UnidadMedicionParaEliminar = null;
+
+    // Se ejecuta al inicializar la página: se carga la lista de UnidadMedicions
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarUnidadMediciones();
+    }
+
+    // Método para cargar todos los UnidadMedicions usando el servicio inyectado
+    private async Task CargarUnidadMediciones()
+    {
+        cargando = true;
+        try
+        {
+            var resultado = await servicioEntidad.ObtenerTodosAsync("proyecto", "UnidadMedicion");
+            UnidadMediciones = resultado ?? new List<Dictionary<string, object>>();
+            // Inicializa el diccionario de selección para cada UnidadMedicion
+            UnidadMedicionSeleccionado = UnidadMediciones.ToDictionary(p => p, p => false);
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al cargar UnidadMedicion: {ex.Message}";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    // Abre el modal para agregar un nuevo UnidadMedicion y reinicia el campo de descripcion
+    private void AbrirModal()
+    {
+        mostrarModal = true;
+        descripcionUnidadMedicion = "";
+    }
+
+    // Cierra el modal de creación
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+    }
+
+    // Método que se ejecuta al enviar el formulario para guardar un nuevo UnidadMedicion
+    private async Task GuardarUnidadMedicion()
+    {
+        // Validación del campo descripcion
+        if (string.IsNullOrEmpty(descripcionUnidadMedicion))
+        {
+            errorMensaje = "El descripcion es obligatorio";
+            return;
+        }
+
+        // Crea un diccionario con los datos del nuevo UnidadMedicion
+        var nuevoUnidadMedicion = new Dictionary<string, object>
+        {
+            { "descripcion", descripcionUnidadMedicion }
+        };
+
+        // Llama al servicio para crear el UnidadMedicion
+        bool resultado = await servicioEntidad.CrearAsync("proyecto", "UnidadMedicion", nuevoUnidadMedicion);
+
+        if (resultado)
+        {
+            await CargarUnidadMediciones();
+            CerrarModal();
+        }
+        else
+        {
+            errorMensaje = "Error al guardar el UnidadMedicion";
+        }
+    }
+
+    // Método para abrir el modal de edición con los datos del UnidadMedicion seleccionado
+    private void EditarUnidadMedicion(Dictionary<string, object> UnidadMedicion)
+    {
+        UnidadMedicionParaEditar = UnidadMedicion;
+        idUnidadMedicionEditar = ObtenerValor(UnidadMedicion, "id");
+        descripcionUnidadMedicionEditar = ObtenerValor(UnidadMedicion, "descripcion");
+        mostrarModalEditar = true;
+    }
+
+    // Método que se ejecuta al enviar el formulario de edición; actualiza el UnidadMedicion
+    private async Task ActualizarUnidadMedicion()
+    {
+        // Validación: se requiere que exista un UnidadMedicion seleccionado y un descripcion no vacío
+        if (UnidadMedicionParaEditar == null || string.IsNullOrEmpty(descripcionUnidadMedicionEditar))
+        {
+            errorMensaje = "El descripcion es obligatorio";
+            return;
+        }
+
+        // Diccionario con los datos actualizados
+        var datosActualizados = new Dictionary<string, object>
+        {
+            { "descripcion", descripcionUnidadMedicionEditar }
+        };
+
+        // Llama al servicio para actualizar el UnidadMedicion especificado
+        bool resultado = await servicioEntidad.ActualizarAsync(
+            "proyecto", 
+            "UnidadMedicion", 
+            "id", 
+            idUnidadMedicionEditar, 
+            datosActualizados);
+
+        if (resultado)
+        {
+            await CargarUnidadMediciones();
+            CerrarModalEditar();
+        }
+        else
+        {
+            errorMensaje = "Error al actualizar el UnidadMedicion";
+        }
+    }
+
+    // Método para abrir el modal de confirmación de eliminación individual
+    private void EliminarUnidadMedicion(Dictionary<string, object> UnidadMedicion)
+    {
+        UnidadMedicionParaEliminar = UnidadMedicion;
+        mostrarModalEliminar = true;
+    }
+
+    // Método que se ejecuta al confirmar la eliminación individual
+    private async Task ConfirmarEliminarUnidadMedicion()
+    {
+        if (UnidadMedicionParaEliminar != null)
+        {
+            string id = ObtenerValor(UnidadMedicionParaEliminar, "id");
+            bool resultado = await servicioEntidad.EliminarAsync("proyecto", "UnidadMedicion", "id", id);
+            
+            if (resultado)
+            {
+                await CargarUnidadMediciones();
+            }
+            else
+            {
+                errorMensaje = "Error al eliminar el UnidadMedicion";
+            }
+            
+            CerrarModalEliminar();
+        }
+    }
+
+    // Método auxiliar para obtener el valor de un diccionario a partir de una clave
+    private string ObtenerValor(Dictionary<string, object> diccionario, string clave)
+    {
+        return diccionario.TryGetValue(clave, out var valor) ? valor?.ToString() ?? "" : "";
+    }
+
+    // Propiedad para manejar la selección de todos los registros a la vez
+    private bool seleccionarTodos
+    {
+        get => _seleccionarTodos;
+        set
+        {
+            _seleccionarTodos = value;
+            // Actualiza todos los checks individuales según el valor global
+            foreach (var clave in UnidadMedicionSeleccionado.Keys.ToList())
+            {
+                UnidadMedicionSeleccionado[clave] = _seleccionarTodos;
+            }
+        }
+    }
+    private bool _seleccionarTodos = false;
+
+    // Método para editar el primer UnidadMedicion que esté seleccionado
+    private void EditarUnidadMedicionSeleccionado()
+    {
+        var seleccionado = UnidadMedicionSeleccionado.FirstOrDefault(x => x.Value).Key;
+        if (seleccionado != null)
+        {
+            EditarUnidadMedicion(seleccionado);
+        }
+        else
+        {
+            errorMensaje = "Debe seleccionar un UnidadMedicion para editar";
+        }
+    }
+
+    // Método para eliminar UnidadMedicions uno a uno (utilizado en eliminación múltiple)
+    private async Task EliminarSeleccionados()
+    {
+        var seleccionados = UnidadMedicionSeleccionado.Where(x => x.Value).Select(x => x.Key).ToList();
+        foreach (var UnidadMedicion in seleccionados)
+        {
+            string id = ObtenerValor(UnidadMedicion, "id");
+            await servicioEntidad.EliminarAsync("proyecto", "UnidadMedicion", "id", id);
+        }
+        await CargarUnidadMediciones();
+        seleccionarTodos = false;
+    }
+
+    // Método para confirmar y ejecutar la eliminación de UnidadMedicions seleccionados
+    private async Task ConfirmarEliminarSeleccionados()
+    {
+        var seleccionados = UnidadMedicionSeleccionado
+            .Where(x => x.Value)
+            .Select(x => x.Key)
+            .ToList();
+
+        foreach (var UnidadMedicion in seleccionados)
+        {
+            string id = ObtenerValor(UnidadMedicion, "id");
+            await servicioEntidad.EliminarAsync("proyecto", "UnidadMedicion", "id", id);
+        }
+
+        await CargarUnidadMediciones();
+        seleccionarTodos = false;
+        mostrarModalEliminarMultiples = false;
+    }
+
+    // Muestra el modal de eliminación múltiple solo si hay al menos un registro seleccionado
+    private void MostrarModalEliminarMultiples()
+    {
+        if (UnidadMedicionSeleccionado.Any(x => x.Value))
+        {
+            mostrarModalEliminarMultiples = true;
+        }
+        else
+        {
+            errorMensaje = "Debes seleccionar al menos un UnidadMedicion para eliminar.";
+        }
+    }
+
+    // Métodos para cerrar los distintos modales
+    private void CerrarModalEditar() => mostrarModalEditar = false;
+    private void CerrarModalEliminar() => mostrarModalEliminar = false;
+    private void CerrarModalEliminarMultiples() => mostrarModalEliminarMultiples = false;
+}

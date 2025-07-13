@@ -1,0 +1,342 @@
+@page "/reprevisualindicador"
+@using System.Collections.Generic
+@using System.Text.Json
+@using Services
+@inherits ValidacionAcceso
+@inject ServicioEntidad servicioEntidad
+@inject NavigationManager navegacionManager
+
+<h1 class="mb-4 text-primary">Represen Visual por Indicadores</h1>
+
+<button class="btn btn-primary mb-3" @onclick="ToggleFormulario">
+    @((mostrarFormulario ? "Cerrar formulario" : "Crear Represen Visual por Indicador"))
+</button>
+
+@if (mostrarFormulario)
+{
+    <div class="card p-4 mb-4 shadow">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label>Indicador</label>
+                <select class="form-control" @bind="nuevoIndicador">
+                    <option value="">Seleccione</option>
+                    @foreach (var tipo in listaIndicador)
+                    {
+                       <option value="@(Convert.ToInt32(tipo["id"]?.ToString() ?? "0"))">@tipo["nombre"]?.ToString()</option>
+
+
+                    }
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Represen Visual</label>
+                <select class="form-control" @bind="nuevoRepresenVisual">
+                    <option value="">Seleccione</option>
+                    @foreach (var tipo in listaRepresenVisual)
+                    {
+                       <option value="@(Convert.ToInt32(tipo["id"]?.ToString() ?? "0"))">@tipo["nombre"]?.ToString()</option>
+
+                    }
+                </select>
+            </div>
+        </div>
+
+        <button class="btn btn-success w-100 mt-3"
+                @onclick="CrearRepresenVisualPorIndicador"
+                disabled="@(nuevoIndicador == 0 || nuevoRepresenVisual == 0)">
+            Crear Represen Visual por Indicador
+        </button>
+    </div>
+}
+
+@if (cargando)
+{
+    <p><em>Cargando...</em></p>
+}
+else if (represenVisualIndicadores == null || represenVisualIndicadores.Count == 0)
+{
+    <p>No hay represen visual de indicadores disponibles.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle text-center">
+            <thead>
+                <tr>
+                    <th>Indicador</th>
+                    <th>Represen Visual</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var represenVisual in represenVisualIndicadores)
+                {
+                    var idIndicadorStr = ObtenerValor(represenVisual, "fkidindicador");
+                    var idRepresenvisualStr = ObtenerValor(represenVisual, "fkidrepresenvisual");
+
+                    var idIndicador = int.TryParse(idIndicadorStr, out var tempInd) ? tempInd : -1;
+                    var idRepresenvisual = int.TryParse(idRepresenvisualStr, out var tempRep) ? tempRep : -1;
+
+                    var objIndicador = listaIndicador.FirstOrDefault(i => int.Parse(i["id"].ToString()) == idIndicador);
+                    var objRepresenVisual = listaRepresenVisual.FirstOrDefault(r => int.Parse(r["id"].ToString()) == idRepresenvisual);
+
+                    var nombreIndicador = objIndicador?["nombre"]?.ToString() ?? "N/A";
+                    var nombreRepresenVisual = objRepresenVisual?["nombre"]?.ToString() ?? "N/A";
+
+                    <tr>
+                        <td>
+                            @if (editandoIndicador == idIndicador)
+                            {
+                                <select class="form-control" @bind="indicadorEditado">
+                                    @foreach (var tipo in listaIndicador)
+                                    {
+                                        <option value="@int.Parse(tipo["id"].ToString()!)">@tipo["nombre"]?.ToString()</option>
+                                    }
+                                </select>
+                            }
+                            else
+                            {
+                                @nombreIndicador
+                            }
+                        </td>
+                        <td>
+                            @if (editandoIndicador == idIndicador)
+                            {
+                                <select class="form-control" @bind="represenVisualEditado">
+                                    @foreach (var tipo in listaRepresenVisual)
+                                    {
+                                        <option value="@int.Parse(tipo["id"].ToString()!)">@tipo["nombre"]?.ToString()</option>
+                                    }
+                                </select>
+                            }
+                            else
+                            {
+                                @nombreRepresenVisual
+                            }
+                        </td>
+                        <td>
+                            <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                @if (editandoIndicador == idIndicador)
+                                {
+                                    <button class="btn btn-sm btn-success" @onclick="() => GuardarEdicion()">
+                                        <i class="bi bi-check2"></i> Guardar
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary" @onclick="CancelarEdicion">
+                                        <i class="bi bi-x-lg"></i> Cancelar
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-primary" @onclick="() => EmpezarEdicion(idIndicador, idRepresenvisual)">
+                                        <i class="bi bi-pencil-square"></i> Editar
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => EliminarRepresenVisualIndicador(idIndicador, idRepresenvisual)">
+                                        <i class="bi bi-trash"></i> Eliminar
+                                    </button>
+                                }
+                            </div>
+                            </td>
+                    </tr>
+                }
+
+            </tbody>
+        </table>
+    </div>
+}
+
+
+
+
+@if (errorMensaje != null)
+{
+    <div class="alert alert-danger">
+        Error: @errorMensaje
+    </div>
+}
+
+@code {
+    private List<Dictionary<string, object>> represenVisualIndicadores  = new List<Dictionary<string, object>>();
+    private List<Dictionary<string, object>> listaIndicador = new();
+    private List<Dictionary<string, object>> listaRepresenVisual = new();
+    private bool cargando = true;
+    
+    private string? errorMensaje = null;
+
+    private int nuevoRepresenVisual = 0;
+    private int nuevoIndicador = 0;
+
+    private int editandoIndicador = 0;
+    private int editandoRepresenVisual = 0;
+    private int represenVisualEditado = 0;
+    private int indicadorEditado = 0;
+    private bool mostrarFormulario = false;
+    private void ToggleFormulario()
+    {
+        mostrarFormulario = !mostrarFormulario;
+    }   
+
+    private const string PROYECTO = "csharpapigenerica";
+    private const string TABLA = "represenvisualporindicador";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarRepresenVisualIndicador();
+        await CargarListasSelect();
+    }
+
+    private async Task CargarRepresenVisualIndicador()
+    {
+        cargando = true;
+        errorMensaje = null;
+        
+        try
+        {
+            var resultado = await servicioEntidad.ObtenerTodosAsync(PROYECTO, TABLA);
+            
+            if (resultado != null)
+            {
+                represenVisualIndicadores  = resultado;
+            }
+            else
+            {
+                represenVisualIndicadores = new List<Dictionary<string, object>>();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al cargar los resultados del indicador: {ex.Message}";
+            represenVisualIndicadores = new List<Dictionary<string, object>>();
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task CargarListasSelect()
+    {
+        listaIndicador = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "indicador") ?? new List<Dictionary<string, object>>();
+        listaRepresenVisual = await servicioEntidad.ObtenerTodosAsync(PROYECTO, "represenvisual") ?? new List<Dictionary<string, object>>();
+    }
+
+
+    private string ObtenerValor(Dictionary<string, object> diccionario, string clave)
+    {
+        if (diccionario == null)
+            return string.Empty;
+            
+        if (diccionario.TryGetValue(clave, out var valor))
+        {
+            return valor?.ToString() ?? string.Empty;
+        }
+        
+        return string.Empty;
+    }
+
+    private async Task CrearRepresenVisualPorIndicador()
+{
+    if (nuevoIndicador > 0 && nuevoRepresenVisual > 0)
+    {
+        var nuevo = new Dictionary<string, object>
+        {
+            { "fkidindicador", nuevoIndicador },
+            { "fkidrepresenvisual", nuevoRepresenVisual },
+        };
+
+        var exito = await servicioEntidad.CrearAsync(PROYECTO, TABLA, nuevo);
+        if (exito)
+        {
+            await CargarRepresenVisualIndicador();
+            nuevoIndicador = 0;
+            nuevoRepresenVisual = 0;
+            errorMensaje = null; 
+        }
+        else
+        {
+            errorMensaje = "No se pudo crear el represen visual de indicador.";
+        }
+    }
+    else
+    {
+        errorMensaje = "Debe seleccionar ambos campos.";
+    }
+}
+
+        
+
+
+    private void EmpezarEdicion(int indicadorActual, int represenVisualActual)
+    {
+        editandoIndicador = indicadorActual;
+        indicadorEditado = indicadorActual;
+        represenVisualEditado = represenVisualActual;
+        editandoRepresenVisual = represenVisualActual;
+
+    }
+
+    private void CancelarEdicion()
+    {
+    editandoIndicador = 0;
+    editandoRepresenVisual = 0;
+
+    }
+
+    private async Task GuardarEdicion()
+    {
+        try
+        {
+            var datos = new Dictionary<string, object?>
+            {
+                { "fkidrepresenvisual", represenVisualEditado },
+            };
+
+            var clave = indicadorEditado.ToString() ?? "";
+
+            var exito = await servicioEntidad.ActualizarAsync(
+                TABLA,                  
+                "fkidindicador",        
+                clave,                 
+                "usuario",              
+                datos   
+            );
+
+            if (exito)
+            {
+                await CargarRepresenVisualIndicador();
+                CancelarEdicion();
+            }
+            else
+            {
+                errorMensaje = "No se pudo actualizar el represen visual de indicador.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error al actualizar: {ex.Message}";
+        }
+    }   
+
+
+    // Eliminar
+    private async Task EliminarRepresenVisualIndicador(int indicadorActual, int represenVisualActual)
+    {
+        var clave = new Dictionary<string, object>
+        {
+            { "fkidindicador", indicadorActual },
+            { "fkidrepresenvisual", represenVisualActual }
+        };
+
+        var exito = await servicioEntidad.EliminarAsync(PROYECTO, TABLA, "fkidindicador", indicadorActual.ToString());
+        if (exito)
+        {
+            await CargarRepresenVisualIndicador();
+        }
+        else
+        {
+        errorMensaje = "No se pudo eliminar el represen visual de indicador.";
+        }
+    }
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    }
